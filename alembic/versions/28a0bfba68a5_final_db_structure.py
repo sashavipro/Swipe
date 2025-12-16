@@ -1,8 +1,8 @@
-"""Initial tables
+"""Final DB Structure
 
-Revision ID: 434bd319ced7
+Revision ID: 28a0bfba68a5
 Revises:
-Create Date: 2025-12-14 15:29:38.208969
+Create Date: 2025-12-16 19:37:04.283931
 
 """
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = "434bd319ced7"
+revision: str = "28a0bfba68a5"
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -34,6 +34,12 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(), nullable=False),
         sa.PrimaryKeyConstraint("id", name=op.f("houses_pkey")),
+    )
+    op.create_table(
+        "images",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("image_url", sa.String(), nullable=False),
+        sa.PrimaryKeyConstraint("id", name=op.f("images_pkey")),
     )
     op.create_table(
         "news",
@@ -73,11 +79,145 @@ def upgrade() -> None:
     op.create_index(op.f("users_email_idx"), "users", ["email"], unique=True)
     op.create_index(op.f("users_phone_idx"), "users", ["phone"], unique=True)
     op.create_table(
+        "blacklist",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("blocked_user_id", sa.Integer(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["blocked_user_id"],
+            ["users.id"],
+            name=op.f("blacklist_blocked_user_id_fkey"),
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"], ["users.id"], name=op.f("blacklist_user_id_fkey")
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("blacklist_pkey")),
+    )
+    op.create_table(
+        "messages",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("sender_id", sa.Integer(), nullable=False),
+        sa.Column("recipient_id", sa.Integer(), nullable=False),
+        sa.Column("content", sa.Text(), nullable=True),
+        sa.Column("file_url", sa.String(), nullable=True),
+        sa.Column("is_read", sa.Boolean(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False
+        ),
+        sa.ForeignKeyConstraint(
+            ["recipient_id"], ["users.id"], name=op.f("messages_recipient_id_fkey")
+        ),
+        sa.ForeignKeyConstraint(
+            ["sender_id"], ["users.id"], name=op.f("messages_sender_id_fkey")
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("messages_pkey")),
+    )
+    op.create_table(
+        "saved_searches",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("type_secondary", sa.Boolean(), nullable=False),
+        sa.Column("type_new_buildings", sa.Boolean(), nullable=False),
+        sa.Column("type_cottage", sa.Boolean(), nullable=False),
+        sa.Column(
+            "type_of_property",
+            sa.Enum("SECONDARY", "NEW_BUILDINGS", "COTTAGE", name="propertytype"),
+            nullable=True,
+        ),
+        sa.Column(
+            "status_house",
+            sa.Enum("READY", "NOT_READY", name="constructionstatus"),
+            nullable=True,
+        ),
+        sa.Column("district", sa.String(), nullable=True),
+        sa.Column("microdistrict", sa.String(), nullable=True),
+        sa.Column("number_of_rooms", sa.Integer(), nullable=True),
+        sa.Column("price_from", sa.Float(), nullable=True),
+        sa.Column("price_to", sa.Float(), nullable=True),
+        sa.Column("area_to", sa.Float(), nullable=True),
+        sa.Column("area_from", sa.Float(), nullable=True),
+        sa.Column(
+            "purpose",
+            sa.Enum("RESIDENTIAL", "COMMERCIAL", name="purpose"),
+            nullable=True,
+        ),
+        sa.Column(
+            "purchase_terms",
+            sa.Enum(
+                "MORTGAGE",
+                "CASH",
+                "INSTALLMENT",
+                "MATERNAL_CAPITAL",
+                name="purchaseterms",
+            ),
+            nullable=True,
+        ),
+        sa.Column(
+            "condition",
+            sa.Enum(
+                "RENOVATED",
+                "DESIGNER",
+                "ROUGH",
+                "WHITE_BOX",
+                "NEEDS_REPAIR",
+                name="condition",
+            ),
+            nullable=True,
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"], ["users.id"], name=op.f("saved_searches_user_id_fkey")
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("saved_searches_pkey")),
+    )
+    op.create_table(
+        "sections",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("house_id", sa.Integer(), nullable=False),
+        sa.Column("name", sa.String(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["house_id"], ["houses.id"], name=op.f("sections_house_id_fkey")
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("sections_pkey")),
+    )
+    op.create_table(
+        "subscriptions",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("paid_to", sa.Date(), nullable=False),
+        sa.Column("auto_renewal", sa.Boolean(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["user_id"], ["users.id"], name=op.f("subscriptions_user_id_fkey")
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("subscriptions_pkey")),
+        sa.UniqueConstraint("user_id", name=op.f("subscriptions_user_id_key")),
+    )
+    op.create_table(
+        "floors",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("section_id", sa.Integer(), nullable=False),
+        sa.Column("number", sa.Integer(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["section_id"], ["sections.id"], name=op.f("floors_section_id_fkey")
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("floors_pkey")),
+    )
+    op.create_table(
+        "apartments",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("floor_id", sa.Integer(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["floor_id"], ["floors.id"], name=op.f("apartments_floor_id_fkey")
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("apartments_pkey")),
+    )
+    op.create_table(
         "announcements",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
-        sa.Column("news_id", sa.Integer(), nullable=True),
-        sa.Column("document_id", sa.Integer(), nullable=True),
+        sa.Column("apartment_id", sa.Integer(), nullable=False),
+        sa.Column("apartment_number", sa.Integer(), nullable=False),
+        sa.Column("area", sa.Float(), nullable=False),
+        sa.Column("price", sa.Float(), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("address", sa.String(), nullable=False),
         sa.Column(
@@ -140,10 +280,8 @@ def upgrade() -> None:
             nullable=True,
         ),
         sa.Column("residential_condition", sa.String(), nullable=True),
-        sa.Column("area", sa.Float(), nullable=False),
         sa.Column("kitchen_area", sa.Float(), nullable=True),
         sa.Column("has_balcony", sa.Boolean(), nullable=False),
-        sa.Column("price", sa.Float(), nullable=False),
         sa.Column("agent_commission", sa.Float(), nullable=True),
         sa.Column(
             "communication_method",
@@ -153,11 +291,18 @@ def upgrade() -> None:
         sa.Column("rejection_reason", sa.String(), nullable=True),
         sa.Column("latitude", sa.String(), nullable=True),
         sa.Column("longitude", sa.String(), nullable=True),
+        sa.Column("news_id", sa.Integer(), nullable=True),
+        sa.Column("document_id", sa.Integer(), nullable=True),
         sa.Column(
             "created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False
         ),
         sa.Column(
             "updated_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False
+        ),
+        sa.ForeignKeyConstraint(
+            ["apartment_id"],
+            ["apartments.id"],
+            name=op.f("announcements_apartment_id_fkey"),
         ),
         sa.ForeignKeyConstraint(
             ["document_id"],
@@ -171,114 +316,29 @@ def upgrade() -> None:
             ["user_id"], ["users.id"], name=op.f("announcements_user_id_fkey")
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("announcements_pkey")),
+        sa.UniqueConstraint(
+            "apartment_id", name=op.f("announcements_apartment_id_key")
+        ),
     )
     op.create_table(
-        "blacklist",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("user_id", sa.Integer(), nullable=False),
-        sa.Column("blocked_user_id", sa.Integer(), nullable=False),
+        "announcement_images_association",
+        sa.Column("announcement_id", sa.Integer(), nullable=False),
+        sa.Column("image_id", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(
-            ["user_id"], ["users.id"], name=op.f("blacklist_user_id_fkey")
-        ),
-        sa.PrimaryKeyConstraint("id", name=op.f("blacklist_pkey")),
-    )
-    op.create_table(
-        "messages",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("sender_id", sa.Integer(), nullable=False),
-        sa.Column("recipient_id", sa.Integer(), nullable=False),
-        sa.Column("content", sa.Text(), nullable=True),
-        sa.Column("file_url", sa.String(), nullable=True),
-        sa.Column("is_read", sa.Boolean(), nullable=False),
-        sa.Column(
-            "created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False
+            ["announcement_id"],
+            ["announcements.id"],
+            name=op.f("announcement_images_association_announcement_id_fkey"),
         ),
         sa.ForeignKeyConstraint(
-            ["recipient_id"], ["users.id"], name=op.f("messages_recipient_id_fkey")
+            ["image_id"],
+            ["images.id"],
+            name=op.f("announcement_images_association_image_id_fkey"),
         ),
-        sa.ForeignKeyConstraint(
-            ["sender_id"], ["users.id"], name=op.f("messages_sender_id_fkey")
+        sa.PrimaryKeyConstraint(
+            "announcement_id",
+            "image_id",
+            name=op.f("announcement_images_association_pkey"),
         ),
-        sa.PrimaryKeyConstraint("id", name=op.f("messages_pkey")),
-    )
-    op.create_table(
-        "saved_searches",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("user_id", sa.Integer(), nullable=False),
-        sa.Column("type_secondary", sa.Boolean(), nullable=False),
-        sa.Column("type_new_buildings", sa.Boolean(), nullable=False),
-        sa.Column("type_cottage", sa.Boolean(), nullable=False),
-        sa.Column(
-            "type_of_property",
-            sa.Enum("SECONDARY", "NEW_BUIlDINGS", "COTTAGE", name="propertytype"),
-            nullable=True,
-        ),
-        sa.Column(
-            "status_house",
-            sa.Enum("READY", "NOT_READY", name="constructionstatus"),
-            nullable=True,
-        ),
-        sa.Column("district", sa.String(), nullable=True),
-        sa.Column("microdistrict", sa.String(), nullable=True),
-        sa.Column("number_of_rooms", sa.Integer(), nullable=True),
-        sa.Column("price_from", sa.Float(), nullable=True),
-        sa.Column("price_to", sa.Float(), nullable=True),
-        sa.Column("area_to", sa.Float(), nullable=True),
-        sa.Column("area_from", sa.Float(), nullable=True),
-        sa.Column(
-            "purpose",
-            sa.Enum("RESIDENTIAL", "COMMERCIAL", name="purpose"),
-            nullable=True,
-        ),
-        sa.Column(
-            "purchase_terms",
-            sa.Enum(
-                "MORTGAGE",
-                "CASH",
-                "INSTALLMENT",
-                "MATERNAL_CAPITAL",
-                name="purchaseterms",
-            ),
-            nullable=True,
-        ),
-        sa.Column(
-            "condition",
-            sa.Enum(
-                "RENOVATED",
-                "DESIGNER",
-                "ROUGH",
-                "WHITE_BOX",
-                "NEEDS_REPAIR",
-                name="condition",
-            ),
-            nullable=True,
-        ),
-        sa.ForeignKeyConstraint(
-            ["user_id"], ["users.id"], name=op.f("saved_searches_user_id_fkey")
-        ),
-        sa.PrimaryKeyConstraint("id", name=op.f("saved_searches_pkey")),
-    )
-    op.create_table(
-        "sections",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("house_id", sa.Integer(), nullable=False),
-        sa.Column("number", sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["house_id"], ["houses.id"], name=op.f("sections_house_id_fkey")
-        ),
-        sa.PrimaryKeyConstraint("id", name=op.f("sections_pkey")),
-    )
-    op.create_table(
-        "subscriptions",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("user_id", sa.Integer(), nullable=False),
-        sa.Column("paid_to", sa.Date(), nullable=False),
-        sa.Column("auto_renewal", sa.Boolean(), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["user_id"], ["users.id"], name=op.f("subscriptions_user_id_fkey")
-        ),
-        sa.PrimaryKeyConstraint("id", name=op.f("subscriptions_pkey")),
-        sa.UniqueConstraint("user_id", name=op.f("subscriptions_user_id_key")),
     )
     op.create_table(
         "chosen",
@@ -298,43 +358,21 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("user_id", "announcement_id", name=op.f("chosen_pkey")),
     )
     op.create_table(
-        "floors",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("section_id", sa.Integer(), nullable=False),
-        sa.Column("number", sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["section_id"], ["sections.id"], name=op.f("floors_section_id_fkey")
-        ),
-        sa.PrimaryKeyConstraint("id", name=op.f("floors_pkey")),
-    )
-    op.create_table(
-        "images",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("announcement_id", sa.Integer(), nullable=False),
-        sa.Column("image_url", sa.String(), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["announcement_id"],
-            ["announcements.id"],
-            name=op.f("images_announcement_id_fkey"),
-        ),
-        sa.PrimaryKeyConstraint("id", name=op.f("images_pkey")),
-    )
-    op.create_table(
         "promotions",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("announcement_id", sa.Integer(), nullable=False),
+        sa.Column("is_turbo", sa.Boolean(), nullable=False),
         sa.Column("is_colored", sa.Boolean(), nullable=False),
-        sa.Column("color_type", sa.String(), nullable=True),
         sa.Column("is_large", sa.Boolean(), nullable=False),
         sa.Column("is_raised", sa.Boolean(), nullable=False),
-        sa.Column("is_turbo", sa.Boolean(), nullable=False),
         sa.Column("add_phrase", sa.Boolean(), nullable=False),
         sa.Column("phrase_text", sa.String(), nullable=True),
-        sa.Column("price_phrase", sa.Float(), nullable=True),
+        sa.Column("color_type", sa.String(), nullable=True),
+        sa.Column("price_turbo", sa.Float(), nullable=True),
         sa.Column("price_color", sa.Float(), nullable=True),
         sa.Column("price_large", sa.Float(), nullable=True),
         sa.Column("price_raised", sa.Float(), nullable=True),
-        sa.Column("price_turbo", sa.Float(), nullable=True),
+        sa.Column("price_phrase", sa.Float(), nullable=True),
         sa.ForeignKeyConstraint(
             ["announcement_id"],
             ["announcements.id"],
@@ -345,43 +383,28 @@ def upgrade() -> None:
             "announcement_id", name=op.f("promotions_announcement_id_key")
         ),
     )
-    op.create_table(
-        "apartments",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("floor_id", sa.Integer(), nullable=False),
-        sa.Column("announcement_id", sa.Integer(), nullable=False),
-        sa.Column("number_on_floor", sa.Integer(), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["announcement_id"],
-            ["announcements.id"],
-            name=op.f("apartments_announcement_id_fkey"),
-        ),
-        sa.ForeignKeyConstraint(
-            ["floor_id"], ["floors.id"], name=op.f("apartments_floor_id_fkey")
-        ),
-        sa.PrimaryKeyConstraint("id", name=op.f("apartments_pkey")),
-    )
     # ### end Alembic commands ###
 
 
 def downgrade() -> None:
     """Downgrade schema."""
     # ### commands auto generated by Alembic - please adjust! ###
-    op.drop_table("apartments")
     op.drop_table("promotions")
-    op.drop_table("images")
-    op.drop_table("floors")
     op.drop_table("chosen")
+    op.drop_table("announcement_images_association")
+    op.drop_table("announcements")
+    op.drop_table("apartments")
+    op.drop_table("floors")
     op.drop_table("subscriptions")
     op.drop_table("sections")
     op.drop_table("saved_searches")
     op.drop_table("messages")
     op.drop_table("blacklist")
-    op.drop_table("announcements")
     op.drop_index(op.f("users_phone_idx"), table_name="users")
     op.drop_index(op.f("users_email_idx"), table_name="users")
     op.drop_table("users")
     op.drop_table("news")
+    op.drop_table("images")
     op.drop_table("houses")
     op.drop_table("documents")
     # ### end Alembic commands ###
