@@ -1,15 +1,52 @@
-from fastapi import APIRouter, UploadFile, File
-from dishka.integrations.fastapi import FromDishka
-from src.infrastructure.storage import ImageStorage
+"""src/routes/real_estate.py."""
 
-router = APIRouter()
+from typing import List
+from fastapi import APIRouter, Depends
+from dishka.integrations.fastapi import FromDishka, inject
+
+from src.models import User
+from src.routes.deps import get_current_user
+from src.schemas.real_estate import (
+    HouseCreate,
+    HouseResponse,
+    AnnouncementResponse,
+    AnnouncementCreate,
+)
+from src.services.real_estate import RealEstateService
+
+router = APIRouter(tags=["Real Estate"])
 
 
-@router.post("/upload-test")
-async def upload_image(
-    storage: FromDishka[ImageStorage], image: UploadFile = File(...)
+@router.post("/houses", response_model=HouseResponse)
+@inject
+async def create_house(
+    service: FromDishka[RealEstateService],
+    data: HouseCreate,
 ):
-    # .file - это файловый объект, который нужен cloudinary
-    url = await storage.upload_file(image.file, folder="test_uploads")
+    """
+    Создать структуру дома.
+    """
+    return await service.create_house(data)
 
-    return {"url": url, "filename": image.filename}
+
+@router.get("/houses", response_model=List[HouseResponse])
+@inject
+async def get_houses(
+    service: FromDishka[RealEstateService],
+):
+    """Получить список всех домов со структурой."""
+    return await service.get_houses()
+
+
+@router.post("/announcements", response_model=AnnouncementResponse)
+@inject
+async def create_announcement(
+    service: FromDishka[RealEstateService],
+    data: AnnouncementCreate,
+    user: User = Depends(get_current_user),
+):
+    """
+    Создать объявление о продаже квартиры.
+    Требует токен (Auth).
+    """
+    return await service.create_announcement(user.id, data)

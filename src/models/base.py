@@ -1,3 +1,5 @@
+"""src/models/base.py."""
+
 import datetime
 from typing import Annotated
 
@@ -13,18 +15,29 @@ POSTGRES_INDEXES_NAMING_CONVENTION = {
     "pk": "%(table_name)s_pkey",
 }
 
-int_pk = Annotated[int, mapped_column(primary_key=True)]
+IntPK = Annotated[int, mapped_column(primary_key=True)]
 
-created_at = Annotated[datetime.datetime, mapped_column(server_default=func.now())]
+CreatedAt = Annotated[
+    datetime.datetime,
+    # pylint: disable=not-callable
+    mapped_column(server_default=func.now()),
+]
 
-updated_at = Annotated[
-    datetime.datetime, mapped_column(server_default=func.now(), onupdate=func.now())
+UpdatedAt = Annotated[
+    datetime.datetime,
+    # pylint: disable=not-callable
+    mapped_column(server_default=func.now(), onupdate=func.now()),
 ]
 
 
 class Base(AsyncAttrs, DeclarativeBase):
+    """
+    Базовый класс для всех моделей SQLAlchemy.
+    Автоматически генерирует __tablename__ и настраивает индексы.
+    """
+
     metadata = MetaData(naming_convention=POSTGRES_INDEXES_NAMING_CONVENTION)
 
     @declared_attr.directive
-    def __tablename__(cls) -> str:
+    def __tablename__(cls) -> str:  # pylint: disable=no-self-argument
         return f"{cls.__name__.lower()}s"

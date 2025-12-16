@@ -1,3 +1,5 @@
+"""src/infrastructure/storage.py."""
+
 from typing import BinaryIO
 import cloudinary
 import cloudinary.uploader
@@ -7,6 +9,11 @@ from src.config import settings
 
 
 class ImageStorage:
+    """
+    Сервис для работы с Cloudinary.
+    Позволяет загружать и удалять изображения.
+    """
+
     def __init__(self):
         cloudinary.config(
             cloud_name=settings.CLOUDINARY_CLOUD_NAME,

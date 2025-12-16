@@ -1,8 +1,15 @@
+"""src/config.py."""
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import computed_field
 
 
 class Settings(BaseSettings):
+    """
+    Конфигурация приложения.
+    Считывает переменные окружения из файла .env.
+    """
+
     model_config = SettingsConfigDict(
         env_file=".env", env_ignore_empty=True, extra="ignore"
     )
@@ -16,6 +23,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
+    REFRESH_TOKEN_EXPIRE_DAYS: int
 
     CLOUDINARY_CLOUD_NAME: str
     CLOUDINARY_API_KEY: str
@@ -23,8 +31,14 @@ class Settings(BaseSettings):
 
     @computed_field
     @property
-    def DATABASE_URL(self) -> str:
-        return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASS}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+    def DATABASE_URL(self) -> str:  # pylint: disable=invalid-name
+        """
+        Собирает строку подключения DSN для SQLAlchemy.
+        """
+        return (
+            f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASS}"
+            f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        )
 
 
 settings = Settings()
