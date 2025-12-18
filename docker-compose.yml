@@ -13,10 +13,11 @@ services:
       - DB_HOST=db
     depends_on:
       db:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - ./src:/app/src
       - ./alembic:/app/alembic
+      - ./alembic.ini:/app/alembic.ini
 
   db:
     image: postgres:15-alpine

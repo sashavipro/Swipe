@@ -40,5 +40,5 @@ class ImageStorage:
             raise e
 
     async def delete_file(self, public_id: str):
-        """Удаление файла (понадобится, если юзер удалит объявление)"""
+        """Удаление файла"""
         await run_in_threadpool(cloudinary.uploader.destroy, public_id)

@@ -11,6 +11,10 @@ from src.schemas.real_estate import (
     HouseResponse,
     AnnouncementResponse,
     AnnouncementCreate,
+    PromotionResponse,
+    PromotionCreate,
+    PromotionUpdate,
+    AnnouncementUpdate,
 )
 from src.services.real_estate import RealEstateService
 
@@ -47,6 +51,87 @@ async def create_announcement(
 ):
     """
     Создать объявление о продаже квартиры.
-    Требует токен (Auth).
     """
+
     return await service.create_announcement(user.id, data)
+
+
+@router.post(
+    "/announcements/{announcement_id}/promotion", response_model=PromotionResponse
+)
+@inject
+async def create_promotion(
+    service: FromDishka[RealEstateService],
+    announcement_id: int,
+    data: PromotionCreate,
+    user: User = Depends(get_current_user),
+):
+    """Добавить продвижение к объявлению."""
+    return await service.create_promotion(user, announcement_id, data)
+
+
+@router.get("/announcements", response_model=List[AnnouncementResponse])
+@inject
+async def get_announcements(
+    service: FromDishka[RealEstateService],
+):
+    """
+    Получить список всех объявлений.
+    Сортировка: сначала Turbo, потом новые.
+    """
+    return await service.get_announcements()
+
+
+@router.delete("/announcements/{announcement_id}")
+@inject
+async def delete_announcement_by_id(
+    service: FromDishka[RealEstateService],
+    announcement_id: int,
+    user: User = Depends(get_current_user),
+):
+    """
+    Удалить объявление по его ID.
+    Доступно только владельцу.
+    """
+    return await service.delete_announcement(user, announcement_id=announcement_id)
+
+
+@router.delete("/promotions/{promotion_id}")
+@inject
+async def delete_promotion(
+    service: FromDishka[RealEstateService],
+    promotion_id: int,
+    user: User = Depends(get_current_user),
+):
+    """
+    Удалить продвижение по его ID.
+    """
+    return await service.delete_promotion(user, promotion_id)
+
+
+@router.patch("/announcements/{announcement_id}", response_model=AnnouncementResponse)
+@inject
+async def update_announcement(
+    service: FromDishka[RealEstateService],
+    announcement_id: int,
+    data: AnnouncementUpdate,
+    user: User = Depends(get_current_user),
+):
+    """
+    Обновить данные объявления.
+    """
+    return await service.update_announcement(user, announcement_id, data)
+
+
+@router.patch("/promotions/{promotion_id}", response_model=PromotionResponse)
+@inject
+async def update_promotion(
+    service: FromDishka[RealEstateService],
+    promotion_id: int,
+    data: PromotionUpdate,
+    user: User = Depends(get_current_user),
+):
+    """
+    Обновить настройки продвижения.
+    """
+    return await service.update_promotion(user, promotion_id, data)

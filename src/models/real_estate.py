@@ -1,6 +1,7 @@
 """src/models/real_estate.py."""
 
 import enum
+from decimal import Decimal
 from typing import List, Optional, TYPE_CHECKING
 from datetime import date
 
@@ -10,10 +11,10 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     Text,
-    Float,
     Date,
     Table,
     Column,
+    Numeric,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -213,6 +214,8 @@ class Apartment(Base):
     id: Mapped[IntPK]
     floor_id: Mapped[int] = mapped_column(ForeignKey("floors.id"))
 
+    number: Mapped[int] = mapped_column(Integer)
+
     floor: Mapped["Floor"] = relationship("Floor", back_populates="apartments")
 
     announcement: Mapped[Optional["Announcement"]] = relationship(
@@ -230,9 +233,8 @@ class Announcement(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     apartment_id: Mapped[int] = mapped_column(ForeignKey("apartments.id"), unique=True)
 
-    apartment_number: Mapped[int] = mapped_column(Integer)
-    area: Mapped[float] = mapped_column(Float)
-    price: Mapped[float] = mapped_column(Float)
+    area: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     description: Mapped[Optional[str]] = mapped_column(Text)
     address: Mapped[str] = mapped_column(String)
 
@@ -246,7 +248,9 @@ class Announcement(Base):
     territory: Mapped[Optional[TerritoryType]] = mapped_column(nullable=True)
     distance_to_sea: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     utilities: Mapped[Optional[Utilities]] = mapped_column(nullable=True)
-    ceiling_height: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    ceiling_height: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(5, 2), nullable=True
+    )
     gas: Mapped[Optional[GasType]] = mapped_column(nullable=True)
     heating: Mapped[Optional[HeatingType]] = mapped_column(nullable=True)
     sewerage: Mapped[Optional[SewerageType]] = mapped_column(nullable=True)
@@ -261,10 +265,14 @@ class Announcement(Base):
     number_of_rooms: Mapped[RoomCount] = mapped_column(default=RoomCount.ONE)
     layout: Mapped[Optional[LayoutType]] = mapped_column(nullable=True)
     residential_condition: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    kitchen_area: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    kitchen_area: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(10, 2), nullable=True
+    )
     has_balcony: Mapped[bool] = mapped_column(default=False)
 
-    agent_commission: Mapped[Optional[float]] = mapped_column(Float, default=0.0)
+    agent_commission: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(14, 2), default=0.0
+    )
     communication_method: Mapped[CommunicationMethod] = mapped_column(
         default=CommunicationMethod.ANY
     )
@@ -324,11 +332,21 @@ class Promotion(Base):
     phrase_text: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     color_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
-    price_turbo: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    price_color: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    price_large: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    price_raised: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    price_phrase: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    price_turbo: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(10, 2), nullable=True
+    )
+    price_color: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(10, 2), nullable=True
+    )
+    price_large: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(10, 2), nullable=True
+    )
+    price_raised: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(10, 2), nullable=True
+    )
+    price_phrase: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(10, 2), nullable=True
+    )
 
     announcement: Mapped["Announcement"] = relationship(
         "Announcement", back_populates="promotion"

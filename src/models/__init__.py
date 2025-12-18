@@ -1,3 +1,5 @@
+"""src/models/__init__.py."""
+
 from .base import Base
 from .real_estate import (
     Announcement,

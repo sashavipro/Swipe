@@ -30,7 +30,6 @@ async def get_my_profile(current_user: User = Depends(get_current_user)):
 async def create_employee(
     service: FromDishka[UserService],
     data: EmployeeCreate,
-    # В будущем тут будет: current_user: User = Depends(get_current_admin)
 ):
     """
     Создание сотрудника.

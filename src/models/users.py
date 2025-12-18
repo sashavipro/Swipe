@@ -1,10 +1,11 @@
 """src/models/users.py."""
 
 import enum
+from decimal import Decimal
 from typing import List, Optional, TYPE_CHECKING
 from datetime import date
 
-from sqlalchemy import String, ForeignKey, Text
+from sqlalchemy import String, ForeignKey, Text, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import Base, IntPK, CreatedAt
@@ -210,11 +211,11 @@ class SavedSearch(Base):
 
     number_of_rooms: Mapped[Optional[int]] = mapped_column(nullable=True)
 
-    price_from: Mapped[Optional[float]] = mapped_column(nullable=True)
-    price_to: Mapped[Optional[float]] = mapped_column(nullable=True)
+    price_from: Mapped[Optional[Decimal]] = mapped_column(Numeric(14, 2), nullable=True)
+    price_to: Mapped[Optional[Decimal]] = mapped_column(Numeric(14, 2), nullable=True)
 
-    area_to: Mapped[Optional[float]] = mapped_column(nullable=True)
-    area_from: Mapped[Optional[float]] = mapped_column(nullable=True)
+    area_to: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 2), nullable=True)
+    area_from: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 2), nullable=True)
 
     purpose: Mapped[Optional[Purpose]] = mapped_column(nullable=True)
     purchase_terms: Mapped[Optional[PurchaseTerms]] = mapped_column(nullable=True)

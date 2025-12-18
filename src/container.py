@@ -68,10 +68,10 @@ class AppProvider(Provider):
 
     @provide(scope=Scope.REQUEST)
     def get_real_estate_service(
-        self, repo: RealEstateRepository, session: AsyncSession
+        self, repo: RealEstateRepository, session: AsyncSession, storage: ImageStorage
     ) -> RealEstateService:
         """Создает сервис недвижимости."""
-        return RealEstateService(repo, session)
+        return RealEstateService(repo, session, storage)
 
     @provide(scope=Scope.REQUEST)
     def get_user_service(
