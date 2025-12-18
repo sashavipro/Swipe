@@ -2,7 +2,6 @@
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from src.models.users import User, UserRole, AgentContact
 from src.schemas.users import UserCreateBase, AgentContactSchema
@@ -11,7 +10,6 @@ from src.schemas.users import UserCreateBase, AgentContactSchema
 class UserRepository:
     """
     Репозиторий для работы с пользователями.
-    Отвечает за CRUD операции с таблицей users и связанными данными.
     """
 
     def __init__(self, session: AsyncSession):
@@ -45,21 +43,10 @@ class UserRepository:
         await self.session.flush()
         return user
 
-    async def get_by_id_with_subscription(self, user_id: int) -> User | None:
-        """Получить юзера вместе с данными о подписке"""
-        query = (
-            select(User)
-            .options(selectinload(User.subscription))
-            .where(User.id == user_id)
-        )
-        result = await self.session.execute(query)
-        return result.scalar_one_or_none()
-
     async def update_user(self, user: User, update_data: dict) -> User:
         """Обновляет поля пользователя"""
         for key, value in update_data.items():
             setattr(user, key, value)
-
         self.session.add(user)
         await self.session.flush()
         return user
@@ -78,5 +65,4 @@ class UserRepository:
             )
             self.session.add(new_contact)
             user.agent_contact = new_contact
-
         await self.session.flush()

@@ -8,10 +8,17 @@ from sqlalchemy import text
 
 from src.container import make_container
 from src.database import async_engine
+
 from src.routes.system import router as system_router
 from src.routes.auth import router as auth_router
-from src.routes.users import router as users_router
-from src.routes.real_estate import router as real_estate_router
+from src.routes.user_profile import router as profile_router
+from src.routes.favorites import router as favorites_router
+from src.routes.houses import router as houses_router
+from src.routes.announcements import router as announcements_router
+from src.routes.promotions import router as promotions_router
+
+USERS_PREFIX = "/users"
+REAL_ESTATE_PREFIX = "/real-estate"
 
 
 @asynccontextmanager
@@ -60,7 +67,12 @@ def create_app() -> FastAPI:
 
     app.include_router(system_router)
     app.include_router(auth_router, prefix="/auth")
-    app.include_router(users_router, prefix="/users")
-    app.include_router(real_estate_router, prefix="/real-estate")
+
+    app.include_router(profile_router, prefix=USERS_PREFIX)
+    app.include_router(favorites_router, prefix=USERS_PREFIX)
+
+    app.include_router(houses_router, prefix=REAL_ESTATE_PREFIX)
+    app.include_router(announcements_router, prefix=REAL_ESTATE_PREFIX)
+    app.include_router(promotions_router, prefix=REAL_ESTATE_PREFIX)
 
     return app
