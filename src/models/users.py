@@ -1,9 +1,9 @@
-"""src/models/users.py."""
+""" "src/models/users.py."""
 
 import enum
 from decimal import Decimal
 from typing import List, Optional, TYPE_CHECKING
-from datetime import date
+from datetime import date, datetime, timezone
 
 from sqlalchemy import String, ForeignKey, Text, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -19,6 +19,8 @@ USER_ID_FK = "users.id"
 class UserRole(str, enum.Enum):
     """Роли пользователя."""
 
+    # pylint: disable=too-few-public-methods
+
     USER = "user"
     AGENT = "agent"
     DEVELOPER = "developer"
@@ -29,10 +31,52 @@ class UserRole(str, enum.Enum):
 class NotificationType(str, enum.Enum):
     """Тип уведомлений."""
 
+    # pylint: disable=too-few-public-methods
+
     ME = "me"
     ME_AND_AGENT = "me_and_agent"
     AGENT = "agent"
     OFF = "off"
+
+
+class ComplaintReason(str, enum.Enum):
+    """Причины жалобы."""
+
+    # pylint: disable=too-few-public-methods
+
+    SPAM = "spam"
+    SCAM = "scam"
+    INSULT = "insult"
+    OTHER = "other"
+
+
+class Complaint(Base):
+    """
+    Модель жалобы на пользователя.
+    """
+
+    # pylint: disable=too-few-public-methods
+
+    __tablename__ = "complaints"
+
+    id: Mapped[IntPK]
+
+    reporter_id: Mapped[int] = mapped_column(ForeignKey(USER_ID_FK))
+
+    reported_user_id: Mapped[int] = mapped_column(ForeignKey(USER_ID_FK))
+
+    reason: Mapped[ComplaintReason] = mapped_column()
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    is_resolved: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[CreatedAt]
+
+    reporter: Mapped["User"] = relationship(
+        "User", foreign_keys=[reporter_id], back_populates="complaints_filed"
+    )
+    reported_user: Mapped["User"] = relationship(
+        "User", foreign_keys=[reported_user_id], back_populates="complaints_received"
+    )
 
 
 class AgentContact(Base):
@@ -110,6 +154,15 @@ class User(Base):
         uselist=False,
         cascade="all, delete-orphan",
         lazy="selectin",
+    )
+
+    complaints_filed: Mapped[List["Complaint"]] = relationship(
+        "Complaint", foreign_keys="[Complaint.reporter_id]", back_populates="reporter"
+    )
+    complaints_received: Mapped[List["Complaint"]] = relationship(
+        "Complaint",
+        foreign_keys="[Complaint.reported_user_id]",
+        back_populates="reported_user",
     )
 
 
@@ -264,3 +317,25 @@ class Chosen(Base):
     announcement: Mapped["Announcement"] = relationship(
         "Announcement", back_populates="favorited_by"
     )
+
+
+class VerificationCode(Base):
+    """
+    Таблица для хранения временных SMS-кодов.
+    """
+
+    # pylint: disable=too-few-public-methods
+    __tablename__ = "verification_codes"
+
+    id: Mapped[IntPK]
+    phone: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    code: Mapped[str] = mapped_column(String(6))
+    created_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+    expires_at: Mapped[datetime]
+
+    @property
+    def is_expired(self) -> bool:
+        """Проверяет, истек ли срок действия кода."""
+        return datetime.now(timezone.utc).replace(tzinfo=None) > self.expires_at

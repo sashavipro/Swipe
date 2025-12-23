@@ -1,17 +1,38 @@
 """src/schemas/auth.py."""
 
-# pylint: disable=duplicate-code
 from pydantic import BaseModel, EmailStr, Field
 
+from src.schemas.users import UserCreateBase
 
-class UserRegister(BaseModel):
-    """Схема для регистрации нового пользователя."""
+
+class EmailVerificationRequest(BaseModel):
+    """Запрос на отправку кода на Email."""
 
     email: EmailStr
-    password: str = Field(min_length=6, max_length=100)
-    first_name: str
-    last_name: str
-    phone: str
+
+
+class EmailVerificationCheck(BaseModel):
+    """Проверка Email кода."""
+
+    email: EmailStr
+    code: str = Field(min_length=4, max_length=6)
+
+
+class VerificationTokenResponse(BaseModel):
+    """Ответ после успешной проверки кода."""
+
+    verification_token: str
+    message: str
+
+
+class UserRegister(UserCreateBase):
+    """
+    Схема для регистрации нового пользователя.
+    Наследует поля (email, password, name, phone) от UserCreateBase.
+    Добавляет verification_token.
+    """
+
+    verification_token: str
 
 
 class UserLogin(BaseModel):
@@ -48,3 +69,16 @@ class UserResponse(BaseModel):
 
         # pylint: disable=too-few-public-methods
         from_attributes = True
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Запрос на сброс пароля."""
+
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    """Установка нового пароля."""
+
+    token: str
+    new_password: str = Field(min_length=6, max_length=100)

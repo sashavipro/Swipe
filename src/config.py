@@ -1,5 +1,6 @@
 """src/config.py."""
 
+from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import computed_field
 
@@ -29,6 +30,17 @@ class Settings(BaseSettings):
     CLOUDINARY_API_KEY: str
     CLOUDINARY_API_SECRET: str
 
+    REDIS_HOST: str
+    REDIS_PORT: int
+
+    MAIL_USERNAME: Optional[str] = None
+    MAIL_PASSWORD: Optional[str] = None
+    MAIL_FROM: Optional[str] = None
+    MAIL_PORT: int = 587
+    MAIL_SERVER: Optional[str] = None
+    MAIL_STARTTLS: bool = True
+    MAIL_SSL_TLS: bool = False
+
     @computed_field
     @property
     def DATABASE_URL(self) -> str:  # pylint: disable=invalid-name
@@ -39,6 +51,12 @@ class Settings(BaseSettings):
             f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASS}"
             f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
         )
+
+    @computed_field
+    @property
+    def REDIS_URL(self) -> str:  # pylint: disable=invalid-name
+        """Собирает строку подключения Redis."""
+        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0"
 
 
 settings = Settings()

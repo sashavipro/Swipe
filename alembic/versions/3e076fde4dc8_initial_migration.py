@@ -1,8 +1,8 @@
-"""Final DB Structure
+"""initial_migration
 
-Revision ID: 28a0bfba68a5
+Revision ID: 3e076fde4dc8
 Revises:
-Create Date: 2025-12-16 19:37:04.283931
+Create Date: 2025-12-22 17:56:32.244235
 
 """
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = "28a0bfba68a5"
+revision: str = "3e076fde4dc8"
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -79,6 +79,35 @@ def upgrade() -> None:
     op.create_index(op.f("users_email_idx"), "users", ["email"], unique=True)
     op.create_index(op.f("users_phone_idx"), "users", ["phone"], unique=True)
     op.create_table(
+        "verification_codes",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("phone", sa.String(length=20), nullable=False),
+        sa.Column("code", sa.String(length=6), nullable=False),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.Column("expires_at", sa.DateTime(), nullable=False),
+        sa.PrimaryKeyConstraint("id", name=op.f("verification_codes_pkey")),
+    )
+    op.create_index(
+        op.f("verification_codes_phone_idx"),
+        "verification_codes",
+        ["phone"],
+        unique=True,
+    )
+    op.create_table(
+        "agent_contacts",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("first_name", sa.String(length=50), nullable=True),
+        sa.Column("last_name", sa.String(length=50), nullable=True),
+        sa.Column("phone", sa.String(length=20), nullable=True),
+        sa.Column("email", sa.String(length=100), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["user_id"], ["users.id"], name=op.f("agent_contacts_user_id_fkey")
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("agent_contacts_pkey")),
+        sa.UniqueConstraint("user_id", name=op.f("agent_contacts_user_id_key")),
+    )
+    op.create_table(
         "blacklist",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
@@ -92,6 +121,31 @@ def upgrade() -> None:
             ["user_id"], ["users.id"], name=op.f("blacklist_user_id_fkey")
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("blacklist_pkey")),
+    )
+    op.create_table(
+        "complaints",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("reporter_id", sa.Integer(), nullable=False),
+        sa.Column("reported_user_id", sa.Integer(), nullable=False),
+        sa.Column(
+            "reason",
+            sa.Enum("SPAM", "SCAM", "INSULT", "OTHER", name="complaintreason"),
+            nullable=False,
+        ),
+        sa.Column("description", sa.Text(), nullable=True),
+        sa.Column("is_resolved", sa.Boolean(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False
+        ),
+        sa.ForeignKeyConstraint(
+            ["reported_user_id"],
+            ["users.id"],
+            name=op.f("complaints_reported_user_id_fkey"),
+        ),
+        sa.ForeignKeyConstraint(
+            ["reporter_id"], ["users.id"], name=op.f("complaints_reporter_id_fkey")
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("complaints_pkey")),
     )
     op.create_table(
         "messages",
@@ -132,10 +186,10 @@ def upgrade() -> None:
         sa.Column("district", sa.String(), nullable=True),
         sa.Column("microdistrict", sa.String(), nullable=True),
         sa.Column("number_of_rooms", sa.Integer(), nullable=True),
-        sa.Column("price_from", sa.Float(), nullable=True),
-        sa.Column("price_to", sa.Float(), nullable=True),
-        sa.Column("area_to", sa.Float(), nullable=True),
-        sa.Column("area_from", sa.Float(), nullable=True),
+        sa.Column("price_from", sa.Numeric(precision=14, scale=2), nullable=True),
+        sa.Column("price_to", sa.Numeric(precision=14, scale=2), nullable=True),
+        sa.Column("area_to", sa.Numeric(precision=10, scale=2), nullable=True),
+        sa.Column("area_from", sa.Numeric(precision=10, scale=2), nullable=True),
         sa.Column(
             "purpose",
             sa.Enum("RESIDENTIAL", "COMMERCIAL", name="purpose"),
@@ -205,6 +259,7 @@ def upgrade() -> None:
         "apartments",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("floor_id", sa.Integer(), nullable=False),
+        sa.Column("number", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(
             ["floor_id"], ["floors.id"], name=op.f("apartments_floor_id_fkey")
         ),
@@ -215,14 +270,15 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("apartment_id", sa.Integer(), nullable=False),
-        sa.Column("apartment_number", sa.Integer(), nullable=False),
-        sa.Column("area", sa.Float(), nullable=False),
-        sa.Column("price", sa.Float(), nullable=False),
+        sa.Column("area", sa.Numeric(precision=10, scale=2), nullable=False),
+        sa.Column("price", sa.Numeric(precision=10, scale=2), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("address", sa.String(), nullable=False),
         sa.Column(
             "status",
-            sa.Enum("ACTIVE", "SOLD", "ARCHIVED", "REJECTED", name="dealstatus"),
+            sa.Enum(
+                "PENDING", "ACTIVE", "SOLD", "ARCHIVED", "REJECTED", name="dealstatus"
+            ),
             nullable=False,
         ),
         sa.Column(
@@ -249,7 +305,7 @@ def upgrade() -> None:
             sa.Enum("CENTRAL", "AUTONOMOUS", name="utilities"),
             nullable=True,
         ),
-        sa.Column("ceiling_height", sa.Float(), nullable=True),
+        sa.Column("ceiling_height", sa.Numeric(precision=5, scale=2), nullable=True),
         sa.Column("gas", sa.Enum("MAIN", "NONE", name="gastype"), nullable=True),
         sa.Column(
             "heating",
@@ -280,9 +336,9 @@ def upgrade() -> None:
             nullable=True,
         ),
         sa.Column("residential_condition", sa.String(), nullable=True),
-        sa.Column("kitchen_area", sa.Float(), nullable=True),
+        sa.Column("kitchen_area", sa.Numeric(precision=10, scale=2), nullable=True),
         sa.Column("has_balcony", sa.Boolean(), nullable=False),
-        sa.Column("agent_commission", sa.Float(), nullable=True),
+        sa.Column("agent_commission", sa.Numeric(precision=14, scale=2), nullable=True),
         sa.Column(
             "communication_method",
             sa.Enum("CALL", "MESSAGE", "ANY", name="communicationmethod"),
@@ -368,11 +424,11 @@ def upgrade() -> None:
         sa.Column("add_phrase", sa.Boolean(), nullable=False),
         sa.Column("phrase_text", sa.String(), nullable=True),
         sa.Column("color_type", sa.String(), nullable=True),
-        sa.Column("price_turbo", sa.Float(), nullable=True),
-        sa.Column("price_color", sa.Float(), nullable=True),
-        sa.Column("price_large", sa.Float(), nullable=True),
-        sa.Column("price_raised", sa.Float(), nullable=True),
-        sa.Column("price_phrase", sa.Float(), nullable=True),
+        sa.Column("price_turbo", sa.Numeric(precision=10, scale=2), nullable=True),
+        sa.Column("price_color", sa.Numeric(precision=10, scale=2), nullable=True),
+        sa.Column("price_large", sa.Numeric(precision=10, scale=2), nullable=True),
+        sa.Column("price_raised", sa.Numeric(precision=10, scale=2), nullable=True),
+        sa.Column("price_phrase", sa.Numeric(precision=10, scale=2), nullable=True),
         sa.ForeignKeyConstraint(
             ["announcement_id"],
             ["announcements.id"],
@@ -399,7 +455,11 @@ def downgrade() -> None:
     op.drop_table("sections")
     op.drop_table("saved_searches")
     op.drop_table("messages")
+    op.drop_table("complaints")
     op.drop_table("blacklist")
+    op.drop_table("agent_contacts")
+    op.drop_index(op.f("verification_codes_phone_idx"), table_name="verification_codes")
+    op.drop_table("verification_codes")
     op.drop_index(op.f("users_phone_idx"), table_name="users")
     op.drop_index(op.f("users_email_idx"), table_name="users")
     op.drop_table("users")

@@ -19,7 +19,11 @@ COPY pyproject.toml poetry.lock ./
 RUN poetry install --no-root --only main
 
 COPY . .
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "alembic upgrade head && uvicorn src.main:app --host 0.0.0.0 --port 8000"]
+ENTRYPOINT ["/app/entrypoint.sh"]
+
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]

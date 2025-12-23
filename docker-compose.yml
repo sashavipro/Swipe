@@ -4,20 +4,41 @@ services:
   app:
     build: .
     container_name: swipe_backend
-    command: sh -c "alembic upgrade head && uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8000:8000"
     env_file:
       - .env
     environment:
       - DB_HOST=db
+      - REDIS_HOST=redis
+      - RUN_MIGRATIONS=true
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     volumes:
       - ./src:/app/src
       - ./alembic:/app/alembic
       - ./alembic.ini:/app/alembic.ini
+
+  worker:
+    build: .
+    container_name: swipe_worker
+    command: celery -A src.worker.celery_app worker --loglevel=info
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=db
+      - REDIS_HOST=redis
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./src:/app/src
 
   db:
     image: postgres:15-alpine
@@ -29,12 +50,26 @@ services:
     ports:
       - "${DB_PORT}:5432"
     volumes:
-      - swipe_new_data:/var/lib/postgresql/data
+      - swipe_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: swipe_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - swipe_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 volumes:
-  swipe_new_data:
+  swipe_postgres_data:
+  swipe_redis_data:

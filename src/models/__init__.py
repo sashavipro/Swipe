@@ -12,7 +12,16 @@ from .real_estate import (
     Promotion,
     Section,
 )
-from .users import BlackList, Chosen, Message, SavedSearch, Subscription, User
+from .users import (
+    BlackList,
+    Chosen,
+    Message,
+    SavedSearch,
+    Subscription,
+    User,
+    Complaint,
+    ComplaintReason,
+)
 
 __all__ = [
     "Base",
@@ -22,6 +31,8 @@ __all__ = [
     "Chosen",
     "SavedSearch",
     "BlackList",
+    "Complaint",
+    "ComplaintReason",
     "House",
     "Section",
     "Floor",

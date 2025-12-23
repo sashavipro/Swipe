@@ -1,12 +1,16 @@
 """src/repositories/promotions.py."""
 
-from fastapi import HTTPException
+import logging
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from src.common.exceptions import ResourceNotFoundError, ResourceAlreadyExistsError
 from src.models.real_estate import Announcement, Promotion
 from src.schemas.real_estate import PromotionCreate
+
+logger = logging.getLogger(__name__)
 
 
 class PromotionRepository:
@@ -21,9 +25,16 @@ class PromotionRepository:
         self,
         announcement_id: int,
         data: PromotionCreate,
-        user_id: int | None = None,
     ) -> Promotion:
-        """Создает запись о продвижении."""
+        """
+        Создает запись о продвижении.
+        Примечание: Проверка прав доступа выполняется в слое Services.
+        """
+        logger.info(
+            "Attempting to create promotion for announcement_id=%s",
+            announcement_id,
+        )
+
         stmt = (
             select(Announcement)
             .options(selectinload(Announcement.promotion))
@@ -32,17 +43,19 @@ class PromotionRepository:
         announcement = (await self.session.execute(stmt)).scalar_one_or_none()
 
         if not announcement:
-            raise HTTPException(status_code=404, detail="Announcement not found")
-
-        if user_id is not None and announcement.user_id != user_id:
-            raise HTTPException(
-                status_code=403,
-                detail="You do not have permission to add promotion to this announcement",
+            logger.warning(
+                "Promotion creation failed: Announcement %s not found", announcement_id
+            )
+            raise ResourceNotFoundError(
+                f"Announcement with id {announcement_id} not found"
             )
 
         if announcement.promotion:
-            raise HTTPException(
-                status_code=400, detail="Promotion already exists for this announcement"
+            logger.warning(
+                "Promotion already exists for announcement_id=%s", announcement_id
+            )
+            raise ResourceAlreadyExistsError(
+                "Promotion already exists for this announcement"
             )
 
         promotion_data = data.model_dump()
@@ -50,10 +63,14 @@ class PromotionRepository:
 
         self.session.add(promo)
         await self.session.flush()
+
+        logger.info("Promotion created successfully: id=%s", promo.id)
         return promo
 
     async def get_promotion_by_id(self, promotion_id: int) -> Promotion | None:
         """Ищет продвижение по ID."""
+        logger.debug("Fetching promotion_id=%s", promotion_id)
+
         stmt = (
             select(Promotion)
             .options(selectinload(Promotion.announcement))
@@ -64,6 +81,8 @@ class PromotionRepository:
 
     async def update_promotion(self, promotion: Promotion, data: dict) -> Promotion:
         """Обновляет поля продвижения."""
+        logger.info("Updating promotion_id=%s", promotion.id)
+
         for key, value in data.items():
             if hasattr(promotion, key):
                 setattr(promotion, key, value)
@@ -74,5 +93,7 @@ class PromotionRepository:
 
     async def delete_promotion(self, promotion: Promotion) -> None:
         """Удаляет запись о продвижении."""
+        logger.info("Deleting promotion_id=%s", promotion.id)
+
         await self.session.delete(promotion)
         await self.session.flush()

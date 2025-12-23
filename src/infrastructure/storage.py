@@ -1,11 +1,14 @@
 """src/infrastructure/storage.py."""
 
+import logging
 from typing import BinaryIO
 import cloudinary
 import cloudinary.uploader
 from fastapi.concurrency import run_in_threadpool
 
 from src.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class ImageStorage:
@@ -35,10 +38,18 @@ class ImageStorage:
                 resource_type="auto",
             )
             return result.get("secure_url")
-        except Exception as e:
-            print(f"Error uploading to Cloudinary: {e}")
-            raise e
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("Error uploading to Cloudinary: %s", e, exc_info=True)
+            raise
 
     async def delete_file(self, public_id: str):
         """Удаление файла"""
-        await run_in_threadpool(cloudinary.uploader.destroy, public_id)
+        try:
+            await run_in_threadpool(cloudinary.uploader.destroy, public_id)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error(
+                "Error deleting file %s from Cloudinary: %s",
+                public_id,
+                e,
+                exc_info=True,
+            )

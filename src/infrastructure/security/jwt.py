@@ -62,3 +62,27 @@ class JWTHandler:
             return payload
         except jwt.PyJWTError:
             return None
+
+    @staticmethod
+    def create_verification_token(phone: str) -> str:
+        """
+        Генерирует токен, подтверждающий владение номером.
+        Живет короткое время (15 минут).
+        """
+        return JWTHandler.create_token(
+            data={"sub": phone},
+            token_type="verification_phone",
+            expires_delta=timedelta(minutes=15),
+        )
+
+    @staticmethod
+    def create_reset_password_token(email: str) -> str:
+        """
+        Генерирует токен для сброса пароля.
+        Срок жизни: 30 минут.
+        """
+        return JWTHandler.create_token(
+            data={"sub": email},
+            token_type="reset_password",
+            expires_delta=timedelta(minutes=30),
+        )

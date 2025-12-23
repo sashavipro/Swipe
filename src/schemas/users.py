@@ -1,13 +1,14 @@
 """src/schemas/users.py."""
 
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
-from src.models.users import UserRole, NotificationType
+from src.common.schemas import PhoneSchemaMixin
+from src.models.users import UserRole, NotificationType, ComplaintReason
 
 
-class UserCreateBase(BaseModel):
+class UserCreateBase(PhoneSchemaMixin, BaseModel):
     """Базовая схема создания пользователя."""
 
     email: EmailStr
@@ -27,7 +28,7 @@ class EmployeeCreate(UserCreateBase):
     role: UserRole = UserRole.AGENT
 
 
-class AgentContactSchema(BaseModel):
+class AgentContactSchema(PhoneSchemaMixin, BaseModel):
     """Схема контактов агента."""
 
     first_name: Optional[str] = None
@@ -38,7 +39,7 @@ class AgentContactSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class UserUpdate(BaseModel):
+class UserUpdate(PhoneSchemaMixin, BaseModel):
     """Схема для обновления данных профиля."""
 
     first_name: Optional[str] = None
@@ -73,5 +74,33 @@ class SubscriptionResponse(BaseModel):
     id: int
     paid_to: date
     auto_renewal: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserUpdateByAdmin(UserUpdate):
+    """Схема обновления пользователя админом (позволяет менять роль)."""
+
+    role: Optional[UserRole] = None
+
+
+class ComplaintCreate(BaseModel):
+    """Создание жалобы."""
+
+    reported_user_id: int
+    reason: ComplaintReason
+    description: Optional[str] = None
+
+
+class ComplaintResponse(BaseModel):
+    """Просмотр жалобы."""
+
+    id: int
+    reporter_id: int
+    reported_user_id: int
+    reason: ComplaintReason
+    description: Optional[str]
+    is_resolved: bool
+    created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

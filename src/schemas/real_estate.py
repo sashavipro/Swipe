@@ -259,3 +259,9 @@ class PromotionUpdate(BaseModel):
     price_large: Optional[Decimal] = None
     price_raised: Optional[Decimal] = None
     price_phrase: Optional[Decimal] = None
+
+
+class AnnouncementReject(BaseModel):
+    """Схема для отклонения объявления."""
+
+    reason: str

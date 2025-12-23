@@ -36,6 +36,7 @@ announcement_images_association = Table(
 class DealStatus(str, enum.Enum):
     """Статус сделки."""
 
+    PENDING = "pending"
     ACTIVE = "active"
     SOLD = "sold"
     ARCHIVED = "archived"
