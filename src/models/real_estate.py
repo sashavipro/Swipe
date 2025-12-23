@@ -12,11 +12,10 @@ from sqlalchemy import (
     Integer,
     Text,
     Date,
-    Table,
-    Column,
     Numeric,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.ext.orderinglist import ordering_list
 
 from src.models.base import Base, IntPK, CreatedAt, UpdatedAt
 
@@ -25,13 +24,7 @@ if TYPE_CHECKING:
 
 CASCADE_ALL_DELETE = "all, delete-orphan"
 ANNOUNCEMENTS_ID_FK = "announcements.id"
-
-announcement_images_association = Table(
-    "announcement_images_association",
-    Base.metadata,
-    Column("announcement_id", ForeignKey(ANNOUNCEMENTS_ID_FK), primary_key=True),
-    Column("image_id", ForeignKey("images.id"), primary_key=True),
-)
+HOUSES_ID_FK = "houses.id"
 
 
 class DealStatus(str, enum.Enum):
@@ -152,12 +145,15 @@ class News(Base):
     # pylint: disable=too-few-public-methods
     __tablename__ = "news"
     id: Mapped[IntPK]
+    house_id: Mapped[Optional[int]] = mapped_column(ForeignKey(HOUSES_ID_FK))
     title: Mapped[str] = mapped_column(String)
     description: Mapped[str] = mapped_column(String)
     date: Mapped[date] = mapped_column(Date)
+
     announcements: Mapped[List["Announcement"]] = relationship(
         "Announcement", back_populates="news"
     )
+    house: Mapped["House"] = relationship("House", back_populates="news")
 
 
 class Document(Base):
@@ -166,11 +162,58 @@ class Document(Base):
     # pylint: disable=too-few-public-methods
     __tablename__ = "documents"
     id: Mapped[IntPK]
+    house_id: Mapped[Optional[int]] = mapped_column(ForeignKey(HOUSES_ID_FK))
     is_excel: Mapped[bool] = mapped_column(Boolean, default=False)
     doc_url: Mapped[str] = mapped_column(String)
+
     announcements: Mapped[List["Announcement"]] = relationship(
         "Announcement", back_populates="document"
     )
+    house: Mapped["House"] = relationship("House", back_populates="documents")
+
+
+class HouseInfo(Base):
+    """
+    Детальная информация о ЖК (Карточка ЖК).
+    """
+
+    # pylint: disable=too-few-public-methods
+    __tablename__ = "house_infos"
+
+    id: Mapped[int] = mapped_column(ForeignKey(HOUSES_ID_FK), primary_key=True)
+
+    main_image: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    address: Mapped[Optional[str]] = mapped_column(String)
+    district: Mapped[Optional[str]] = mapped_column(String)
+    microdistrict: Mapped[Optional[str]] = mapped_column(String)
+
+    latitude: Mapped[Optional[str]] = mapped_column(String)
+    longitude: Mapped[Optional[str]] = mapped_column(String)
+
+    house_type: Mapped[Optional[HouseType]] = mapped_column(nullable=True)
+    house_class: Mapped[Optional[HouseClass]] = mapped_column(nullable=True)
+    construction_technology: Mapped[Optional[ConstructionTechnology]] = mapped_column(
+        nullable=True
+    )
+    territory: Mapped[Optional[TerritoryType]] = mapped_column(nullable=True)
+    distance_to_sea: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    ceiling_height: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(5, 2), nullable=True
+    )
+
+    utilities: Mapped[Optional[Utilities]] = mapped_column(nullable=True)
+    gas: Mapped[Optional[GasType]] = mapped_column(nullable=True)
+    heating: Mapped[Optional[HeatingType]] = mapped_column(nullable=True)
+    sewerage: Mapped[Optional[SewerageType]] = mapped_column(nullable=True)
+    water_supply: Mapped[Optional[WaterSupplyType]] = mapped_column(nullable=True)
+    electricity: Mapped[Optional[bool]] = mapped_column(Boolean, default=True)
+
+    payment_options: Mapped[Optional[str]] = mapped_column(String)
+    legal_terms: Mapped[Optional[str]] = mapped_column(String)
+
+    house: Mapped["House"] = relationship("House", back_populates="info")
 
 
 class House(Base):
@@ -179,7 +222,6 @@ class House(Base):
     # pylint: disable=too-few-public-methods
     __tablename__ = "houses"
     id: Mapped[IntPK]
-    # Владелец дома (Застройщик), который может одобрять заявки
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     name: Mapped[str] = mapped_column(String)
 
@@ -188,6 +230,15 @@ class House(Base):
     )
     owner: Mapped["User"] = relationship("User", foreign_keys=[owner_id])
 
+    info: Mapped[Optional["HouseInfo"]] = relationship(
+        "HouseInfo", back_populates="house", uselist=False, cascade=CASCADE_ALL_DELETE
+    )
+
+    news: Mapped[List["News"]] = relationship("News", back_populates="house")
+    documents: Mapped[List["Document"]] = relationship(
+        "Document", back_populates="house"
+    )
+
 
 class Section(Base):
     """Секция (подъезд)."""
@@ -195,7 +246,7 @@ class Section(Base):
     # pylint: disable=too-few-public-methods
     __tablename__ = "sections"
     id: Mapped[IntPK]
-    house_id: Mapped[int] = mapped_column(ForeignKey("houses.id"))
+    house_id: Mapped[int] = mapped_column(ForeignKey(HOUSES_ID_FK))
     name: Mapped[str] = mapped_column(String)
     house: Mapped["House"] = relationship("House", back_populates="sections")
     floors: Mapped[List["Floor"]] = relationship(
@@ -220,7 +271,6 @@ class Floor(Base):
 class Apartment(Base):
     """
     Физическая квартира (Ячейка в шахматке).
-    Существует только если заведена застройщиком.
     """
 
     # pylint: disable=too-few-public-methods
@@ -320,14 +370,20 @@ class Announcement(Base):
     document: Mapped[Optional["Document"]] = relationship(
         "Document", back_populates="announcements"
     )
+
     images: Mapped[List["Image"]] = relationship(
-        "Image", secondary=announcement_images_association
+        "Image",
+        back_populates="announcement",
+        order_by="Image.position",
+        collection_class=ordering_list("position"),
+        cascade=CASCADE_ALL_DELETE,
     )
+
     promotion: Mapped[Optional["Promotion"]] = relationship(
         "Promotion",
         back_populates="announcement",
         uselist=False,
-        cascade="all, delete-orphan",
+        cascade=CASCADE_ALL_DELETE,
     )
     favorited_by: Mapped[List["Chosen"]] = relationship(
         "Chosen", back_populates="announcement"
@@ -348,8 +404,7 @@ class ChessboardRequest(Base):
     id: Mapped[IntPK]
     announcement_id: Mapped[int] = mapped_column(ForeignKey(ANNOUNCEMENTS_ID_FK))
 
-    # Куда хотим привязаться
-    target_house_id: Mapped[int] = mapped_column(ForeignKey("houses.id"))
+    target_house_id: Mapped[int] = mapped_column(ForeignKey(HOUSES_ID_FK))
     target_section_id: Mapped[int] = mapped_column(ForeignKey("sections.id"))
     target_floor_id: Mapped[int] = mapped_column(ForeignKey("floors.id"))
     target_apartment_number: Mapped[int] = mapped_column(Integer)
@@ -414,3 +469,10 @@ class Image(Base):
     __tablename__ = "images"
     id: Mapped[IntPK]
     image_url: Mapped[str] = mapped_column(String)
+
+    announcement_id: Mapped[int] = mapped_column(ForeignKey(ANNOUNCEMENTS_ID_FK))
+    position: Mapped[int] = mapped_column(Integer, default=0)
+
+    announcement: Mapped["Announcement"] = relationship(
+        "Announcement", back_populates="images"
+    )

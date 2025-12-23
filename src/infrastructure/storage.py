@@ -1,7 +1,7 @@
 """src/infrastructure/storage.py."""
 
 import logging
-from typing import BinaryIO
+from typing import BinaryIO, Optional
 import cloudinary
 import cloudinary.uploader
 from fastapi.concurrency import run_in_threadpool
@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 class ImageStorage:
     """
     Сервис для работы с Cloudinary.
-    Позволяет загружать и удалять изображения.
     """
 
     def __init__(self):
@@ -25,31 +24,54 @@ class ImageStorage:
             secure=True,
         )
 
-    async def upload_file(self, file: BinaryIO, folder: str = "general") -> str:
-        """
-        Загружает файл в Cloudinary и возвращает Secure URL.
-        Работает асинхронно через тредпул.
-        """
+    async def upload_file(
+        self,
+        file_obj: BinaryIO,
+        folder: str = "general",
+        filename: Optional[str] = None,
+    ) -> str:
+        """Загружает файл в Cloudinary."""
         try:
+            upload_options = {
+                "folder": f"swipe_project/{folder}",
+                "resource_type": "auto",
+            }
+
+            if filename:
+                upload_options["use_filename"] = True
+                upload_options["unique_filename"] = True
+                upload_options["public_id"] = filename
+
             result = await run_in_threadpool(
                 cloudinary.uploader.upload,
-                file,
-                folder=f"swipe_project/{folder}",
-                resource_type="auto",
+                file_obj,
+                **upload_options,
             )
             return result.get("secure_url")
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Error uploading to Cloudinary: %s", e, exc_info=True)
             raise
 
-    async def delete_file(self, public_id: str):
-        """Удаление файла"""
+    async def delete_file(self, public_id: str, resource_type: str = "image"):
+        """
+        Удаление файла.
+        ВАЖНО: для документов (pdf, xlsx) нужно передавать resource_type="raw".
+        """
         try:
-            await run_in_threadpool(cloudinary.uploader.destroy, public_id)
+            logger.info(
+                "Deleting from Cloudinary: id=%s, type=%s", public_id, resource_type
+            )
+            await run_in_threadpool(
+                cloudinary.uploader.destroy,
+                public_id,
+                resource_type=resource_type,
+                invalidate=True,
+            )
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(
-                "Error deleting file %s from Cloudinary: %s",
+                "Error deleting file %s (%s) from Cloudinary: %s",
                 public_id,
+                resource_type,
                 e,
                 exc_info=True,
             )

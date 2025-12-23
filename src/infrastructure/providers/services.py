@@ -5,17 +5,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from redis.asyncio import Redis
 
 from src.infrastructure.storage import ImageStorage
-from src.repositories.chessboard import ChessboardRepository
 from src.services.admin import AdminService
 
 from src.services.auth import AuthService
-from src.services.chessboard import ChessboardService
 from src.services.houses import HouseService
 from src.services.announcements import AnnouncementService
 from src.services.promotions import PromotionService
 from src.services.user_profile import UserProfileService
 from src.services.subscriptions import SubscriptionService
 from src.services.favorites import FavoriteService
+from src.services.chessboard import ChessboardService
 
 from src.repositories.users import UserRepository
 from src.repositories.houses import HouseRepository
@@ -23,12 +22,12 @@ from src.repositories.announcements import AnnouncementRepository
 from src.repositories.promotions import PromotionRepository
 from src.repositories.subscriptions import SubscriptionRepository
 from src.repositories.favorites import FavoriteRepository
+from src.repositories.chessboard import ChessboardRepository
 
 
 class ServiceProvider(Provider):
     """
     Провайдер слоя бизнес-логики (Services).
-    Сервисы зависят от Репозиториев, Сессии и (иногда) Storage.
     """
 
     scope = Scope.REQUEST
@@ -42,10 +41,10 @@ class ServiceProvider(Provider):
 
     @provide(scope=Scope.REQUEST)
     def get_house_service(
-        self, repo: HouseRepository, session: AsyncSession
+        self, repo: HouseRepository, session: AsyncSession, storage: ImageStorage
     ) -> HouseService:
         """Создает сервис дома."""
-        return HouseService(repo, session)
+        return HouseService(repo, session, storage)
 
     @provide(scope=Scope.REQUEST)
     def get_announcement_service(

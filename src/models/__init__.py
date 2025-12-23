@@ -11,6 +11,7 @@ from .real_estate import (
     News,
     Promotion,
     Section,
+    HouseInfo,
 )
 from .users import (
     BlackList,
@@ -38,6 +39,7 @@ __all__ = [
     "Floor",
     "Apartment",
     "Announcement",
+    "HouseInfo",
     "Image",
     "Promotion",
     "News",

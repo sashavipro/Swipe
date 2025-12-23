@@ -4,14 +4,13 @@ import asyncio
 import base64
 import io
 import logging
-import re
 from typing import Sequence
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.common.exceptions import ResourceNotFoundError, PermissionDeniedError
 from src.infrastructure.storage import ImageStorage
 from src.models import User
-from src.models.real_estate import DealStatus
+from src.models.real_estate import DealStatus, Image, Announcement
 from src.models.users import UserRole
 from src.repositories.announcements import AnnouncementRepository
 from src.schemas.real_estate import (
@@ -19,6 +18,7 @@ from src.schemas.real_estate import (
     AnnouncementResponse,
     AnnouncementUpdate,
 )
+from src.common.utils import extract_public_id_for_image
 
 logger = logging.getLogger(__name__)
 
@@ -39,10 +39,7 @@ class AnnouncementService:
     async def _process_image(
         self, index: int, image_str: str, user_id: int
     ) -> str | None:
-        """
-        Вспомогательный метод для обработки и загрузки одного изображения.
-        Возвращает URL или None в случае ошибки.
-        """
+        """Вспомогательный метод для обработки и загрузки."""
         try:
             if ";base64," in image_str:
                 _, encoded = image_str.split(";base64,")
@@ -62,27 +59,15 @@ class AnnouncementService:
             )
             return None
 
-    def _extract_public_id(self, image_url: str) -> str | None:
-        """
-        Извлекает public_id из ссылки Cloudinary.
-        Пример: https://res.cloudinary.com/.../swipe_project/real_estate/xyz.jpg
-        -> swipe_project/real_estate/xyz
-        """
-        if not image_url:
-            return None
-
-        match = re.search(r"(swipe_project/.*)\.", image_url)
-        if match:
-            return match.group(1)
-        return None
+    async def _process_image_with_index(self, index: int, image_str: str, user_id: int):
+        """Обертка для возврата индекса с url."""
+        url = await self._process_image(index, image_str, user_id)
+        return index, url
 
     async def create_announcement(
         self, user_id: int, data: AnnouncementCreate
     ) -> AnnouncementResponse:
-        """
-        Загрузка Base64 картинок в Cloudinary (параллельно) и создание объявления.
-        Реализован механизм компенсации (удаления фото) при ошибке БД.
-        """
+        """Создает объявление с загрузкой изображений."""
         logger.info("Starting announcement creation for user_id=%s", user_id)
 
         upload_tasks = [
@@ -90,66 +75,102 @@ class AnnouncementService:
             for i, img_str in enumerate(data.images)
         ]
         results = await asyncio.gather(*upload_tasks)
-
         image_urls = [url for url in results if url is not None]
-
-        logger.info(
-            "Images processed: %d uploaded successfully out of %d",
-            len(image_urls),
-            len(data.images),
-        )
 
         try:
             announcement = await self.repo.create_announcement(
                 user_id, data, image_urls
             )
             await self.session.commit()
-
             logger.info("Announcement created successfully: id=%s", announcement.id)
             return announcement
 
-        except Exception as e:
-            logger.error(
-                "Database error during announcement creation: %s. "
-                "Rolling back Cloudinary uploads...",
-                e,
-            )
-
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("Database error. Rolling back Cloudinary uploads: %s", e)
             if image_urls:
                 cleanup_tasks = []
                 for url in image_urls:
-                    public_id = self._extract_public_id(url)
+                    public_id = extract_public_id_for_image(url)
                     if public_id:
                         cleanup_tasks.append(self.storage.delete_file(public_id))
-
                 if cleanup_tasks:
                     await asyncio.gather(*cleanup_tasks, return_exceptions=True)
-                    logger.info(
-                        "Rollback complete: Deleted orphaned images from Cloudinary."
-                    )
             raise e
 
     async def get_announcements(
         self, limit: int = 20, offset: int = 0
     ) -> Sequence[AnnouncementResponse]:
-        """Получить список всех объявлений с пагинацией."""
+        """Получает список объявлений."""
         return await self.repo.get_announcements(
             status=DealStatus.ACTIVE, limit=limit, offset=offset
         )
+
+    async def _prepare_image_objects(
+        self,
+        new_images_input: list[str],
+        current_images_map: dict[str, Image],
+        user_id: int,
+    ) -> list[Image]:
+        """Подготавливает список объектов Image (существующих и новых)."""
+        final_image_objects = [None] * len(new_images_input)
+        upload_tasks = []
+
+        for i, img_str in enumerate(new_images_input):
+            if img_str.startswith("http"):
+                if img_str in current_images_map:
+                    final_image_objects[i] = current_images_map[img_str]
+                else:
+                    final_image_objects[i] = Image(image_url=img_str)
+            else:
+                upload_tasks.append(self._process_image_with_index(i, img_str, user_id))
+
+        if upload_tasks:
+            results = await asyncio.gather(*upload_tasks)
+            for idx, url in results:
+                if url:
+                    final_image_objects[idx] = Image(image_url=url)
+
+        return [obj for obj in final_image_objects if obj is not None]
+
+    async def _handle_images_update(
+        self,
+        announcement: Announcement,
+        new_images_input: list[str],
+        user_id: int,
+    ) -> list[Image]:
+        """
+        Обрабатывает список изображений при обновлении.
+        """
+        current_images_map = {img.image_url: img for img in announcement.images}
+
+        valid_image_objects = await self._prepare_image_objects(
+            new_images_input, current_images_map, user_id
+        )
+
+        # Cleanup removed images
+        new_urls_set = {obj.image_url for obj in valid_image_objects}
+        cleanup_tasks = []
+        for url in current_images_map:
+            if url not in new_urls_set:
+                public_id = extract_public_id_for_image(url)
+                if public_id:
+                    cleanup_tasks.append(self.storage.delete_file(public_id))
+
+        if cleanup_tasks:
+            await asyncio.gather(*cleanup_tasks, return_exceptions=True)
+
+        return valid_image_objects
 
     async def update_announcement(
         self, user: User, announcement_id: int, data: AnnouncementUpdate
     ) -> AnnouncementResponse:
         """
-        Обновляет объявление.
-        Если обновляет владелец -> статус меняется на PENDING (на модерацию).
-        Если обновляет модератор -> статус можно менять произвольно.
+        Обновляет объявление. Сохраняет ID существующих картинок.
         """
         announcement = await self.repo.get_announcement_by_criteria(
             announcement_id=announcement_id
         )
         if not announcement:
-            logger.warning("Update failed: Announcement %s not found", announcement_id)
             raise ResourceNotFoundError(
                 f"Announcement with id {announcement_id} not found"
             )
@@ -164,17 +185,18 @@ class AnnouncementService:
 
         update_data = data.model_dump(exclude_unset=True)
 
+        if "images" in update_data:
+            new_images_input = update_data.pop("images")
+            update_data["images"] = await self._handle_images_update(
+                announcement, new_images_input, user.id
+            )
+
         if is_owner and not is_admin:
             if "status" in update_data:
                 del update_data["status"]
-
             update_data["status"] = DealStatus.PENDING
             update_data["rejection_reason"] = None
-
-            logger.info(
-                "Announcement %s sent to re-moderation after update by owner",
-                announcement_id,
-            )
+            logger.info("Announcement %s sent to re-moderation", announcement_id)
 
         updated_announcement = await self.repo.update_announcement(
             announcement, update_data
@@ -190,38 +212,24 @@ class AnnouncementService:
         announcement_id: int | None = None,
         apartment_id: int | None = None,
     ):
-        """
-        Удаляет объявление.
-        Проверяет, является ли пользователь владельцем.
-        """
+        """Удаляет объявление."""
         announcement = await self.repo.get_announcement_by_criteria(
             announcement_id=announcement_id, apartment_id=apartment_id
         )
         if not announcement:
-            logger.warning(
-                "Delete failed: Announcement not found (id=%s, apt_id=%s)",
-                announcement_id,
-                apartment_id,
-            )
             raise ResourceNotFoundError("Announcement not found")
 
         is_owner = announcement.user_id == user.id
         is_admin = user.role in [UserRole.MODERATOR, UserRole.AGENT]
 
         if not is_owner and not is_admin:
-            logger.warning(
-                "Permission denied: User %s tried to delete announcement %s",
-                user.id,
-                announcement.id,
-            )
             raise PermissionDeniedError(
                 "You do not have permission to delete this announcement"
             )
 
         if announcement.images:
-            logger.info("Deleting images for announcement %s", announcement.id)
             for img in announcement.images:
-                public_id = self._extract_public_id(img.image_url)
+                public_id = extract_public_id_for_image(img.image_url)
                 if public_id:
                     await self.storage.delete_file(public_id)
 

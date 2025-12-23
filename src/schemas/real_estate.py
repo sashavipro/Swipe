@@ -2,7 +2,7 @@
 
 from decimal import Decimal
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, date
 from pydantic import BaseModel, ConfigDict, Field
 from src.models.real_estate import (
     DealStatus,
@@ -44,11 +44,82 @@ class SectionCreate(BaseModel):
     floors: List[FloorCreate]
 
 
+class HouseInfoBase(BaseModel):
+    """Базовая схема информации о ЖК (карточка)."""
+
+    main_image: Optional[str] = None
+    description: Optional[str] = None
+    address: Optional[str] = None
+    district: Optional[str] = None
+    microdistrict: Optional[str] = None
+    latitude: Optional[str] = None
+    longitude: Optional[str] = None
+
+    house_type: Optional[HouseType] = None
+    house_class: Optional[HouseClass] = None
+    construction_technology: Optional[ConstructionTechnology] = None
+    territory: Optional[TerritoryType] = None
+    distance_to_sea: Optional[int] = None
+    ceiling_height: Optional[Decimal] = None
+
+    utilities: Optional[Utilities] = None
+    gas: Optional[GasType] = None
+    heating: Optional[HeatingType] = None
+    sewerage: Optional[SewerageType] = None
+    water_supply: Optional[WaterSupplyType] = None
+    electricity: Optional[bool] = True
+
+    payment_options: Optional[str] = None
+    legal_terms: Optional[str] = None
+
+
 class HouseCreate(BaseModel):
     """Схема для создания дома (ЖК)."""
 
     name: str
     sections: List[SectionCreate]
+    info: Optional[HouseInfoBase] = None
+
+
+class HouseInfoResponse(HouseInfoBase):
+    """Схема ответа информации о ЖК."""
+
+    id: int
+    model_config = ConfigDict(from_attributes=True)
+
+
+class NewsCreate(BaseModel):
+    """Создание новости."""
+
+    title: str
+    description: str
+    date: date
+
+
+class NewsResponse(BaseModel):
+    """Схема ответа новости ЖК."""
+
+    id: int
+    title: str
+    description: str
+    date: date
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DocumentCreate(BaseModel):
+    """Создание документа."""
+
+    doc_url: str
+    is_excel: bool = False
+
+
+class DocumentResponse(BaseModel):
+    """Схема ответа документа ЖК."""
+
+    id: int
+    doc_url: str
+    is_excel: bool
+    model_config = ConfigDict(from_attributes=True)
 
 
 class HouseResponse(BaseModel):
@@ -56,8 +127,41 @@ class HouseResponse(BaseModel):
 
     id: int
     name: str
-    owner_id: int  # Added owner_id
+    owner_id: int
+    info: Optional[HouseInfoResponse] = None
+    news: List[NewsResponse] = []
+    documents: List[DocumentResponse] = []
+
     model_config = ConfigDict(from_attributes=True)
+
+
+class HouseInfoUpdate(BaseModel):
+    """Схема для редактирования карточки ЖК."""
+
+    main_image: Optional[str] = None
+    description: Optional[str] = None
+    address: Optional[str] = None
+    district: Optional[str] = None
+    microdistrict: Optional[str] = None
+    latitude: Optional[str] = None
+    longitude: Optional[str] = None
+
+    house_type: Optional[HouseType] = None
+    house_class: Optional[HouseClass] = None
+    construction_technology: Optional[ConstructionTechnology] = None
+    territory: Optional[TerritoryType] = None
+    distance_to_sea: Optional[int] = None
+    ceiling_height: Optional[Decimal] = None
+
+    utilities: Optional[Utilities] = None
+    gas: Optional[GasType] = None
+    heating: Optional[HeatingType] = None
+    sewerage: Optional[SewerageType] = None
+    water_supply: Optional[WaterSupplyType] = None
+    electricity: Optional[bool] = None
+
+    payment_options: Optional[str] = None
+    legal_terms: Optional[str] = None
 
 
 class PromotionCreate(BaseModel):
@@ -252,6 +356,8 @@ class AnnouncementUpdate(BaseModel):
     rejection_reason: Optional[str] = None
     latitude: Optional[str] = None
     longitude: Optional[str] = None
+
+    images: Optional[List[str]] = None
 
 
 class PromotionUpdate(BaseModel):
