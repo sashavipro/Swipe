@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.repositories.houses import HouseRepository
 from src.schemas.real_estate import HouseCreate, HouseResponse
+from src.models.users import User, UserRole
+from src.common.exceptions import PermissionDeniedError
 
 logger = logging.getLogger(__name__)
 
@@ -19,11 +21,20 @@ class HouseService:
         self.repo = repo
         self.session = session
 
-    async def create_house(self, data: HouseCreate) -> HouseResponse:
-        """Создает ЖК со всей структурой."""
-        logger.info("Creating new house structure: %s", data.name)
+    async def create_house(self, user: User, data: HouseCreate) -> HouseResponse:
+        """
+        Создает ЖК со всей структурой.
+        Доступно только DEVELOPER или MODERATOR.
+        """
+        if user.role not in [UserRole.DEVELOPER, UserRole.MODERATOR]:
+            logger.warning(
+                "User %s denied creating house (role: %s)", user.id, user.role
+            )
+            raise PermissionDeniedError("Only developers can create housing complexes")
 
-        house = await self.repo.create_house(data)
+        logger.info("Creating new house structure: %s by user %s", data.name, user.id)
+
+        house = await self.repo.create_house(data, owner_id=user.id)
         await self.session.commit()
 
         logger.info("House created successfully with id=%s", house.id)

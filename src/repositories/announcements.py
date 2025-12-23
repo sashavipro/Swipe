@@ -26,54 +26,55 @@ class AnnouncementRepository:
     ) -> Announcement:
         """
         Создает объявление.
-        Если объявление для этой квартиры уже есть и оно ОТКЛОНЕНО или В АРХИВЕ,
-        мы его перезаписываем (воскрешаем) и отправляем на модерацию.
+        Если apartment_id передан, проверяет, нет ли уже активных объявлений для этой квартиры.
         """
-        logger.info(
-            "Attempting to create announcement for apartment_id=%s by user_id=%s",
-            data.apartment_id,
-            user_id,
-        )
+        logger.info("Creating announcement for user_id=%s", user_id)
 
-        stmt = (
-            select(Announcement)
-            .options(selectinload(Announcement.images))
-            .where(Announcement.apartment_id == data.apartment_id)
-        )
-        existing_announcement = (await self.session.execute(stmt)).scalar_one_or_none()
-
-        if existing_announcement:
-            if existing_announcement.status in [DealStatus.ACTIVE, DealStatus.PENDING]:
-                logger.warning(
-                    "Creation failed: Active/Pending announcement exists for apt=%s",
-                    data.apartment_id,
-                )
-                raise ResourceAlreadyExistsError(
-                    "Announcement already exists for this apartment and is active or pending."
-                )
-
-            logger.info(
-                "Overwriting existing (dead) announcement %s", existing_announcement.id
+        if data.apartment_id:
+            stmt = (
+                select(Announcement)
+                .options(selectinload(Announcement.images))
+                .where(Announcement.apartment_id == data.apartment_id)
             )
+            existing_announcement = (
+                await self.session.execute(stmt)
+            ).scalar_one_or_none()
 
-            announcement_data = data.model_dump(exclude={"images"})
-            for key, value in announcement_data.items():
-                setattr(existing_announcement, key, value)
+            if existing_announcement:
+                if existing_announcement.status in [
+                    DealStatus.ACTIVE,
+                    DealStatus.PENDING,
+                ]:
+                    logger.warning(
+                        "Creation failed: Active/Pending announcement exists for apt=%s",
+                        data.apartment_id,
+                    )
+                    raise ResourceAlreadyExistsError(
+                        "Announcement already exists for this apartment and is active or pending."
+                    )
 
-            existing_announcement.status = DealStatus.PENDING
-            existing_announcement.rejection_reason = None
-            existing_announcement.user_id = user_id
+                logger.info(
+                    "Overwriting existing (dead) announcement %s",
+                    existing_announcement.id,
+                )
+                announcement_data = data.model_dump(exclude={"images"})
+                for key, value in announcement_data.items():
+                    setattr(existing_announcement, key, value)
 
-            existing_announcement.images.clear()
-            for url in image_urls:
-                image = Image(image_url=url)
-                existing_announcement.images.append(image)
+                existing_announcement.status = DealStatus.PENDING
+                existing_announcement.rejection_reason = None
+                existing_announcement.user_id = user_id
 
-            await self.session.flush()
-            await self.session.refresh(
-                existing_announcement, attribute_names=["images", "promotion"]
-            )
-            return existing_announcement
+                existing_announcement.images.clear()
+                for url in image_urls:
+                    image = Image(image_url=url)
+                    existing_announcement.images.append(image)
+
+                await self.session.flush()
+                await self.session.refresh(
+                    existing_announcement, attribute_names=["images", "promotion"]
+                )
+                return existing_announcement
 
         announcement_data = data.model_dump(exclude={"images"})
 
@@ -120,7 +121,6 @@ class AnnouncementRepository:
         if status:
             query = query.where(Announcement.status == status)
 
-        # Применяем пагинацию
         query = query.limit(limit).offset(offset)
 
         result = await self.session.execute(query)

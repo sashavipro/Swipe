@@ -24,11 +24,12 @@ if TYPE_CHECKING:
     from src.models.users import User, Chosen
 
 CASCADE_ALL_DELETE = "all, delete-orphan"
+ANNOUNCEMENTS_ID_FK = "announcements.id"
 
 announcement_images_association = Table(
     "announcement_images_association",
     Base.metadata,
-    Column("announcement_id", ForeignKey("announcements.id"), primary_key=True),
+    Column("announcement_id", ForeignKey(ANNOUNCEMENTS_ID_FK), primary_key=True),
     Column("image_id", ForeignKey("images.id"), primary_key=True),
 )
 
@@ -40,6 +41,14 @@ class DealStatus(str, enum.Enum):
     ACTIVE = "active"
     SOLD = "sold"
     ARCHIVED = "archived"
+    REJECTED = "rejected"
+
+
+class RequestStatus(str, enum.Enum):
+    """Статус заявки на добавление в шахматку."""
+
+    PENDING = "pending"
+    APPROVED = "approved"
     REJECTED = "rejected"
 
 
@@ -170,10 +179,14 @@ class House(Base):
     # pylint: disable=too-few-public-methods
     __tablename__ = "houses"
     id: Mapped[IntPK]
+    # Владелец дома (Застройщик), который может одобрять заявки
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     name: Mapped[str] = mapped_column(String)
+
     sections: Mapped[List["Section"]] = relationship(
         "Section", back_populates="house", cascade=CASCADE_ALL_DELETE
     )
+    owner: Mapped["User"] = relationship("User", foreign_keys=[owner_id])
 
 
 class Section(Base):
@@ -206,7 +219,8 @@ class Floor(Base):
 
 class Apartment(Base):
     """
-    Физическая квартира.
+    Физическая квартира (Ячейка в шахматке).
+    Существует только если заведена застройщиком.
     """
 
     # pylint: disable=too-few-public-methods
@@ -232,7 +246,14 @@ class Announcement(Base):
 
     id: Mapped[IntPK]
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    apartment_id: Mapped[int] = mapped_column(ForeignKey("apartments.id"), unique=True)
+
+    apartment_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("apartments.id"), unique=True, nullable=True
+    )
+
+    floor_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    total_floors: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    apartment_number: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     area: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
@@ -290,7 +311,7 @@ class Announcement(Base):
     updated_at: Mapped[UpdatedAt]
 
     owner: Mapped["User"] = relationship("User", back_populates="announcements")
-    apartment_unit: Mapped["Apartment"] = relationship(
+    apartment_unit: Mapped[Optional["Apartment"]] = relationship(
         "Apartment", back_populates="announcement"
     )
     news: Mapped[Optional["News"]] = relationship(
@@ -311,6 +332,38 @@ class Announcement(Base):
     favorited_by: Mapped[List["Chosen"]] = relationship(
         "Chosen", back_populates="announcement"
     )
+    chessboard_request: Mapped[Optional["ChessboardRequest"]] = relationship(
+        "ChessboardRequest", back_populates="announcement", uselist=False
+    )
+
+
+class ChessboardRequest(Base):
+    """
+    Заявка на привязку объявления к шахматке (квартире в доме).
+    """
+
+    # pylint: disable=too-few-public-methods
+    __tablename__ = "chessboard_requests"
+
+    id: Mapped[IntPK]
+    announcement_id: Mapped[int] = mapped_column(ForeignKey(ANNOUNCEMENTS_ID_FK))
+
+    # Куда хотим привязаться
+    target_house_id: Mapped[int] = mapped_column(ForeignKey("houses.id"))
+    target_section_id: Mapped[int] = mapped_column(ForeignKey("sections.id"))
+    target_floor_id: Mapped[int] = mapped_column(ForeignKey("floors.id"))
+    target_apartment_number: Mapped[int] = mapped_column(Integer)
+
+    status: Mapped[RequestStatus] = mapped_column(default=RequestStatus.PENDING)
+    developer_comment: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+    created_at: Mapped[CreatedAt]
+    updated_at: Mapped[UpdatedAt]
+
+    announcement: Mapped["Announcement"] = relationship(
+        "Announcement", back_populates="chessboard_request"
+    )
+    house: Mapped["House"] = relationship("House")
 
 
 class Promotion(Base):
@@ -321,7 +374,7 @@ class Promotion(Base):
 
     id: Mapped[IntPK]
     announcement_id: Mapped[int] = mapped_column(
-        ForeignKey("announcements.id"), unique=True
+        ForeignKey(ANNOUNCEMENTS_ID_FK), unique=True
     )
 
     is_turbo: Mapped[bool] = mapped_column(default=False)

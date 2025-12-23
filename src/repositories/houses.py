@@ -22,12 +22,19 @@ class HouseRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def create_house(self, data: HouseCreate) -> House:
-        """Создает полную структуру ЖК."""
-        logger.info("Attempting to create house structure for: '%s'", data.name)
+    async def create_house(self, data: HouseCreate, owner_id: int) -> House:
+        """
+        Создает полную структуру ЖК.
+        Привязывает ЖК к owner_id (застройщику).
+        """
+        logger.info(
+            "Attempting to create house structure for: '%s' by owner %s",
+            data.name,
+            owner_id,
+        )
 
         try:
-            house = House(name=data.name)
+            house = House(name=data.name, owner_id=owner_id)
 
             for section_data in data.sections:
                 section = Section(name=section_data.name)
@@ -54,7 +61,7 @@ class HouseRepository:
             )
             await self.session.rollback()
             raise ResourceAlreadyExistsError(
-                f"House with name '{data.name}' might already exist or violates constraints."
+                f"House with name '{data.name}' might already exist or constraints violated."
             ) from e
 
     async def get_all_houses(self) -> Sequence[House]:

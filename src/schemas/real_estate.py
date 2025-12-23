@@ -18,6 +18,7 @@ from src.models.real_estate import (
     SewerageType,
     WaterSupplyType,
     LayoutType,
+    RequestStatus,
 )
 
 
@@ -55,6 +56,7 @@ class HouseResponse(BaseModel):
 
     id: int
     name: str
+    owner_id: int  # Added owner_id
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -103,7 +105,11 @@ class ImageResponse(BaseModel):
 class AnnouncementCreate(BaseModel):
     """Схема для создания объявления."""
 
-    apartment_id: int
+    apartment_id: Optional[int] = None
+
+    floor_number: Optional[int] = None
+    total_floors: Optional[int] = None
+    apartment_number: Optional[str] = None
 
     price: Decimal
     area: Decimal
@@ -150,7 +156,11 @@ class AnnouncementResponse(BaseModel):
 
     id: int
     user_id: int
-    apartment_id: int
+    apartment_id: Optional[int]
+
+    floor_number: Optional[int]
+    total_floors: Optional[int]
+    apartment_number: Optional[str]
 
     area: Decimal
     price: Decimal
@@ -201,7 +211,6 @@ class AnnouncementResponse(BaseModel):
 class AnnouncementUpdate(BaseModel):
     """
     Схема для обновления объявления.
-    Все поля опциональны.
     """
 
     price: Optional[Decimal] = None
@@ -209,6 +218,10 @@ class AnnouncementUpdate(BaseModel):
     description: Optional[str] = None
     address: Optional[str] = None
     status: Optional[DealStatus] = None
+
+    floor_number: Optional[int] = None
+    total_floors: Optional[int] = None
+    apartment_number: Optional[str] = None
 
     house_type: Optional[HouseType] = None
     house_class: Optional[HouseClass] = None
@@ -265,3 +278,32 @@ class AnnouncementReject(BaseModel):
     """Схема для отклонения объявления."""
 
     reason: str
+
+
+class ChessboardRequestCreate(BaseModel):
+    """Создание заявки на добавление в шахматку."""
+
+    target_house_id: int
+    target_section_id: int
+    target_floor_id: int
+    target_apartment_number: int
+
+
+class ChessboardRequestResponse(BaseModel):
+    """Ответ заявки."""
+
+    id: int
+    announcement_id: int
+    target_house_id: int
+    status: RequestStatus
+    developer_comment: Optional[str]
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ResolveRequestSchema(BaseModel):
+    """Схема для принятия решения по заявке (одобрение/отклонение)."""
+
+    approved: bool
+    comment: str | None = None

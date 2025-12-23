@@ -3,6 +3,7 @@
 from dishka import Provider, Scope, provide
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.repositories.chessboard import ChessboardRepository
 from src.repositories.users import UserRepository
 from src.repositories.houses import HouseRepository
 from src.repositories.announcements import AnnouncementRepository
@@ -52,3 +53,8 @@ class RepositoryProvider(Provider):
     def get_favorite_repository(self, session: AsyncSession) -> FavoriteRepository:
         """Создает репозиторий избранных."""
         return FavoriteRepository(session)
+
+    @provide(scope=Scope.REQUEST)
+    def get_chessboard_repository(self, session: AsyncSession) -> ChessboardRepository:
+        """Создает репозиторий заявок в шахматку."""
+        return ChessboardRepository(session)

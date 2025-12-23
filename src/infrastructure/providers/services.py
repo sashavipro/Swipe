@@ -5,9 +5,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from redis.asyncio import Redis
 
 from src.infrastructure.storage import ImageStorage
+from src.repositories.chessboard import ChessboardRepository
 from src.services.admin import AdminService
 
 from src.services.auth import AuthService
+from src.services.chessboard import ChessboardService
 from src.services.houses import HouseService
 from src.services.announcements import AnnouncementService
 from src.services.promotions import PromotionService
@@ -95,3 +97,13 @@ class ServiceProvider(Provider):
     ) -> AdminService:
         """Создает сервис для администратора."""
         return AdminService(repo, announcement_repo, session)
+
+    @provide(scope=Scope.REQUEST)
+    def get_chessboard_service(
+        self,
+        repo: ChessboardRepository,
+        announcement_repo: AnnouncementRepository,
+        session: AsyncSession,
+    ) -> ChessboardService:
+        """Создает сервис заявок в шахматку."""
+        return ChessboardService(repo, announcement_repo, session)

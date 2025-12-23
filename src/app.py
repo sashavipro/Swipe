@@ -24,7 +24,7 @@ from src.routes.admin.users import router as admin_users_router
 from src.routes.admin.bans import router as admin_bans_router
 from src.routes.admin.complaints import router as admin_complaints_router
 from src.routes.admin.moderation import router as admin_moderation_router
-
+from src.routes.chessboard import router as chessboard_router
 
 from src.schemas.users import UserCreateBase
 
@@ -131,6 +131,7 @@ def create_app() -> FastAPI:
     app.include_router(houses_router, prefix=REAL_ESTATE_PREFIX)
     app.include_router(announcements_router, prefix=REAL_ESTATE_PREFIX)
     app.include_router(promotions_router, prefix=REAL_ESTATE_PREFIX)
+    app.include_router(chessboard_router, prefix=REAL_ESTATE_PREFIX)
     app.include_router(admin_users_router, prefix=ADMIN_PREFIX)
     app.include_router(admin_bans_router, prefix=ADMIN_PREFIX)
     app.include_router(admin_complaints_router, prefix=ADMIN_PREFIX)
