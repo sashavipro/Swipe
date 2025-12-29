@@ -6,12 +6,20 @@ from fastapi import APIRouter, Depends, status, Query
 from dishka.integrations.fastapi import FromDishka, inject
 
 from src.common.docs import create_error_responses
+from src.common.exceptions import (
+    ResourceNotFoundError,
+    PermissionDeniedError,
+    ResourceAlreadyExistsError,
+    AuthenticationFailedError,
+    BadRequestError,
+)
 from src.models import User
 from src.routes.deps import get_current_user
 from src.schemas.real_estate import (
     AnnouncementResponse,
     AnnouncementCreate,
     AnnouncementUpdate,
+    AnnouncementFilter,
 )
 from src.services.announcements import AnnouncementService
 
@@ -23,7 +31,9 @@ router = APIRouter(tags=["Announcements"])
     "/announcements",
     response_model=AnnouncementResponse,
     status_code=status.HTTP_201_CREATED,
-    responses=create_error_responses(401, 422),
+    responses=create_error_responses(
+        AuthenticationFailedError, ResourceAlreadyExistsError, BadRequestError
+    ),
 )
 @inject
 async def create_announcement(
@@ -32,7 +42,7 @@ async def create_announcement(
     user: User = Depends(get_current_user),
 ):
     """
-    Создать объявление.
+    Create a new announcement.
     """
     logger.info("User %s creating announcement", user.id)
     return await service.create_announcement(user.id, data)
@@ -43,12 +53,12 @@ async def create_announcement(
 async def get_announcements(
     service: FromDishka[AnnouncementService],
     limit: Annotated[
-        int, Query(ge=1, le=100, description="Количество записей (макс 100)")
+        int, Query(ge=1, le=100, description="Number of records (max 100)")
     ] = 20,
-    offset: Annotated[int, Query(ge=0, description="Смещение")] = 0,
+    offset: Annotated[int, Query(ge=0, description="Offset")] = 0,
 ):
     """
-    Получить список объявлений с пагинацией.
+    Get a list of announcements with pagination.
     """
     return await service.get_announcements(limit=limit, offset=offset)
 
@@ -56,7 +66,12 @@ async def get_announcements(
 @router.patch(
     "/announcements/{announcement_id}",
     response_model=AnnouncementResponse,
-    responses=create_error_responses(401, 403, 404, 422),
+    responses=create_error_responses(
+        AuthenticationFailedError,
+        PermissionDeniedError,
+        ResourceNotFoundError,
+        BadRequestError,
+    ),
 )
 @inject
 async def update_announcement(
@@ -66,7 +81,7 @@ async def update_announcement(
     user: User = Depends(get_current_user),
 ):
     """
-    Обновить объявление.
+    Update an announcement.
     """
     logger.info("User %s updating announcement %s", user.id, announcement_id)
     return await service.update_announcement(user, announcement_id, data)
@@ -74,7 +89,9 @@ async def update_announcement(
 
 @router.delete(
     "/announcements/{announcement_id}",
-    responses=create_error_responses(401, 403, 404, 422),
+    responses=create_error_responses(
+        AuthenticationFailedError, PermissionDeniedError, ResourceNotFoundError
+    ),
 )
 @inject
 async def delete_announcement_by_id(
@@ -83,7 +100,28 @@ async def delete_announcement_by_id(
     user: User = Depends(get_current_user),
 ):
     """
-    Удалить объявление.
+    Delete an announcement.
     """
     logger.info("User %s deleting announcement %s", user.id, announcement_id)
     return await service.delete_announcement(user, announcement_id=announcement_id)
+
+
+@router.get(
+    "/announcements/search",
+    response_model=List[AnnouncementResponse],
+    responses=create_error_responses(BadRequestError),
+)
+@inject
+async def search_announcements(
+    service: FromDishka[AnnouncementService],
+    filter_params: AnnouncementFilter = Depends(),
+    limit: Annotated[
+        int, Query(ge=1, le=100, description="Number of records (max 100)")
+    ] = 20,
+    offset: Annotated[int, Query(ge=0, description="Offset")] = 0,
+):
+    """
+    Search announcements by filter.
+    Parameters are passed in the query string.
+    """
+    return await service.search_announcements(filter_params, limit, offset)

@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class ImageStorage:
     """
-    Сервис для работы с Cloudinary.
+    Service for working with Cloudinary.
     """
 
     def __init__(self):
@@ -30,7 +30,7 @@ class ImageStorage:
         folder: str = "general",
         filename: Optional[str] = None,
     ) -> str:
-        """Загружает файл в Cloudinary."""
+        """Uploads file to Cloudinary."""
         try:
             upload_options = {
                 "folder": f"swipe_project/{folder}",
@@ -54,8 +54,8 @@ class ImageStorage:
 
     async def delete_file(self, public_id: str, resource_type: str = "image"):
         """
-        Удаление файла.
-        ВАЖНО: для документов (pdf, xlsx) нужно передавать resource_type="raw".
+        Deletes a file.
+        IMPORTANT: for documents (pdf, xlsx) pass resource_type="raw".
         """
         try:
             logger.info(

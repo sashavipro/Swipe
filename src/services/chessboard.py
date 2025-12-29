@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 
 class ChessboardService:
     """
-    Сервис для управления заявками на добавление в шахматку.
-    Позволяет пользователям создавать заявки, а застройщикам — модерировать их.
+    Service for managing chessboard linking requests.
+    Allows users to create requests, and developers to moderate them.
     """
 
     def __init__(
@@ -38,20 +38,18 @@ class ChessboardService:
     async def create_request(
         self, user: User, announcement_id: int, data: ChessboardRequestCreate
     ) -> ChessboardRequestResponse:
-        """Пользователь подает заявку на привязку."""
+        """User submits a link request."""
         announcement = await self.announcement_repo.get_announcement_by_criteria(
             announcement_id
         )
         if not announcement:
-            raise ResourceNotFoundError("Announcement not found")
+            raise ResourceNotFoundError()
 
         if announcement.user_id != user.id:
-            raise PermissionDeniedError("You do not own this announcement")
+            raise PermissionDeniedError()
 
         if announcement.apartment_id is not None:
-            raise ResourceAlreadyExistsError(
-                "This announcement is already linked to a chessboard apartment"
-            )
+            raise ResourceAlreadyExistsError()
 
         request = await self.repo.create_request(announcement_id, data)
         await self.session.commit()
@@ -60,7 +58,7 @@ class ChessboardService:
     async def get_developer_requests(
         self, developer: User
     ) -> Sequence[ChessboardRequestResponse]:
-        """Застройщик смотрит входящие заявки."""
+        """Developer views incoming requests."""
         return await self.repo.get_requests_for_developer(developer.id)
 
     async def resolve_request(
@@ -71,17 +69,17 @@ class ChessboardService:
         comment: str | None = None,
     ):
         """
-        Застройщик принимает решение.
+        Developer makes a decision.
         """
         request = await self.repo.get_request_by_id(request_id)
         if not request:
-            raise ResourceNotFoundError("Request not found")
+            raise ResourceNotFoundError()
 
         if request.house.owner_id != developer.id:
-            raise PermissionDeniedError("You are not the owner of this housing complex")
+            raise PermissionDeniedError()
 
         if request.status != RequestStatus.PENDING:
-            raise ResourceAlreadyExistsError("Request is already resolved")
+            raise ResourceAlreadyExistsError()
 
         if not approved:
             await self.repo.update_status(request, RequestStatus.REJECTED, comment)
@@ -106,9 +104,7 @@ class ChessboardService:
             )
         )
         if existing_announcement:
-            raise ResourceAlreadyExistsError(
-                "This apartment slot is already occupied by another announcement"
-            )
+            raise ResourceAlreadyExistsError()
 
         await self.announcement_repo.update_announcement(
             request.announcement, {"apartment_id": apartment.id}

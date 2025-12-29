@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 class PromotionRepository:
     """
-    Репозиторий для работы с продвижениями.
+    Repository for working with promotions.
     """
 
     def __init__(self, session: AsyncSession):
@@ -27,8 +27,8 @@ class PromotionRepository:
         data: PromotionCreate,
     ) -> Promotion:
         """
-        Создает запись о продвижении.
-        Примечание: Проверка прав доступа выполняется в слое Services.
+        Creates a promotion record.
+        Note: Permission checks are performed in the Services layer.
         """
         logger.info(
             "Attempting to create promotion for announcement_id=%s",
@@ -68,7 +68,7 @@ class PromotionRepository:
         return promo
 
     async def get_promotion_by_id(self, promotion_id: int) -> Promotion | None:
-        """Ищет продвижение по ID."""
+        """Searches for promotion by ID."""
         logger.debug("Fetching promotion_id=%s", promotion_id)
 
         stmt = (
@@ -80,7 +80,7 @@ class PromotionRepository:
         return result.scalar_one_or_none()
 
     async def update_promotion(self, promotion: Promotion, data: dict) -> Promotion:
-        """Обновляет поля продвижения."""
+        """Updates promotion fields."""
         logger.info("Updating promotion_id=%s", promotion.id)
 
         for key, value in data.items():
@@ -92,7 +92,7 @@ class PromotionRepository:
         return promotion
 
     async def delete_promotion(self, promotion: Promotion) -> None:
-        """Удаляет запись о продвижении."""
+        """Deletes a promotion record."""
         logger.info("Deleting promotion_id=%s", promotion.id)
 
         await self.session.delete(promotion)

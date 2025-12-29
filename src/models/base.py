@@ -32,8 +32,8 @@ UpdatedAt = Annotated[
 
 class Base(AsyncAttrs, DeclarativeBase):
     """
-    Базовый класс для всех моделей SQLAlchemy.
-    Автоматически генерирует __tablename__ и настраивает индексы.
+    Base class for all SQLAlchemy models.
+    Automatically generates __tablename__ and configures indexes.
     """
 
     metadata = MetaData(naming_convention=POSTGRES_INDEXES_NAMING_CONVENTION)

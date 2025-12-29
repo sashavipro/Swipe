@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class SubscriptionService:
     """
-    Сервис для работы с подпиской.
+    Service for subscription management.
     """
 
     def __init__(self, repo: SubscriptionRepository, session: AsyncSession):
@@ -22,17 +22,17 @@ class SubscriptionService:
         self.session = session
 
     async def toggle_auto_renewal(self, user_id: int) -> SubscriptionResponse:
-        """Вкл/Выкл автопродления"""
+        """Toggle auto-renewal on/off."""
         logger.info("Toggling auto-renewal for user %s", user_id)
 
         user = await self.repo.get_by_id_with_subscription(user_id)
         if not user:
             logger.warning("User %s not found during subscription toggle", user_id)
-            raise ResourceNotFoundError(f"User {user_id} not found")
+            raise ResourceNotFoundError()
 
         if not user.subscription:
             logger.warning("No active subscription for user %s", user_id)
-            raise ResourceNotFoundError("No active subscription found for this user")
+            raise ResourceNotFoundError()
 
         user.subscription.auto_renewal = not user.subscription.auto_renewal
         self.session.add(user.subscription)
@@ -48,13 +48,13 @@ class SubscriptionService:
     async def extend_subscription(
         self, user_id: int, days: int = 30
     ) -> SubscriptionResponse:
-        """Продление подписки"""
+        """Extend subscription."""
         logger.info("Extending subscription for user %s by %s days", user_id, days)
 
         user = await self.repo.get_by_id_with_subscription(user_id)
         if not user:
             logger.warning("User %s not found during subscription extension", user_id)
-            raise ResourceNotFoundError(f"User {user_id} not found")
+            raise ResourceNotFoundError()
 
         if user.subscription:
             start_date = max(user.subscription.paid_to, date.today())

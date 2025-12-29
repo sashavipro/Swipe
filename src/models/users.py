@@ -1,4 +1,4 @@
-""" "src/models/users.py."""
+"""src/models/users.py."""
 
 import enum
 from decimal import Decimal
@@ -14,10 +14,11 @@ if TYPE_CHECKING:
     from src.models.real_estate import Announcement
 
 USER_ID_FK = "users.id"
+CASCADE_ALL_DELETE = "all, delete-orphan"
 
 
 class UserRole(str, enum.Enum):
-    """Роли пользователя."""
+    """User roles."""
 
     # pylint: disable=too-few-public-methods
 
@@ -29,7 +30,7 @@ class UserRole(str, enum.Enum):
 
 
 class NotificationType(str, enum.Enum):
-    """Тип уведомлений."""
+    """Notification types."""
 
     # pylint: disable=too-few-public-methods
 
@@ -40,7 +41,7 @@ class NotificationType(str, enum.Enum):
 
 
 class ComplaintReason(str, enum.Enum):
-    """Причины жалобы."""
+    """Complaint reasons."""
 
     # pylint: disable=too-few-public-methods
 
@@ -52,7 +53,7 @@ class ComplaintReason(str, enum.Enum):
 
 class Complaint(Base):
     """
-    Модель жалобы на пользователя.
+    User complaint model.
     """
 
     # pylint: disable=too-few-public-methods
@@ -81,7 +82,7 @@ class Complaint(Base):
 
 class AgentContact(Base):
     """
-    Контакты агента, привязанные к конкретному юзеру.
+    Agent contacts linked to a specific user.
     """
 
     # pylint: disable=too-few-public-methods
@@ -99,7 +100,7 @@ class AgentContact(Base):
 
 
 class User(Base):
-    """Модель пользователя."""
+    """User model."""
 
     # pylint: disable=too-few-public-methods
     __tablename__ = "users"
@@ -124,50 +125,62 @@ class User(Base):
     created_at: Mapped[CreatedAt]
 
     subscription: Mapped[Optional["Subscription"]] = relationship(
-        "Subscription", back_populates="user", uselist=False
+        "Subscription", back_populates="user", uselist=False, cascade=CASCADE_ALL_DELETE
     )
 
     saved_searches: Mapped[List["SavedSearch"]] = relationship(
-        "SavedSearch", back_populates="user"
+        "SavedSearch", back_populates="user", cascade=CASCADE_ALL_DELETE
     )
 
     blacklist: Mapped[List["BlackList"]] = relationship(
         "BlackList", foreign_keys="[BlackList.user_id]", back_populates="user"
     )
 
-    favorites: Mapped[List["Chosen"]] = relationship("Chosen", back_populates="user")
+    favorites: Mapped[List["Chosen"]] = relationship(
+        "Chosen", back_populates="user", cascade=CASCADE_ALL_DELETE
+    )
 
     sent_messages: Mapped[List["Message"]] = relationship(
-        "Message", foreign_keys="[Message.sender_id]", back_populates="sender"
+        "Message",
+        foreign_keys="[Message.sender_id]",
+        back_populates="sender",
+        cascade=CASCADE_ALL_DELETE,
     )
     received_messages: Mapped[List["Message"]] = relationship(
-        "Message", foreign_keys="[Message.recipient_id]", back_populates="recipient"
+        "Message",
+        foreign_keys="[Message.recipient_id]",
+        back_populates="recipient",
+        cascade=CASCADE_ALL_DELETE,
     )
 
     announcements: Mapped[List["Announcement"]] = relationship(
-        "Announcement", back_populates="owner"
+        "Announcement", back_populates="owner", cascade=CASCADE_ALL_DELETE
     )
 
     agent_contact: Mapped[Optional["AgentContact"]] = relationship(
         "AgentContact",
         back_populates="user",
         uselist=False,
-        cascade="all, delete-orphan",
+        cascade=CASCADE_ALL_DELETE,
         lazy="selectin",
     )
 
     complaints_filed: Mapped[List["Complaint"]] = relationship(
-        "Complaint", foreign_keys="[Complaint.reporter_id]", back_populates="reporter"
+        "Complaint",
+        foreign_keys="[Complaint.reporter_id]",
+        back_populates="reporter",
+        cascade=CASCADE_ALL_DELETE,
     )
     complaints_received: Mapped[List["Complaint"]] = relationship(
         "Complaint",
         foreign_keys="[Complaint.reported_user_id]",
         back_populates="reported_user",
+        cascade=CASCADE_ALL_DELETE,
     )
 
 
 class Subscription(Base):
-    """Подписка пользователя."""
+    """User subscription."""
 
     # pylint: disable=too-few-public-methods
     __tablename__ = "subscriptions"
@@ -182,17 +195,17 @@ class Subscription(Base):
 
 
 class BlackList(Base):
-    """Черный список пользователя."""
+    """User blacklist."""
 
     # pylint: disable=too-few-public-methods
     __tablename__ = "blacklist"
 
     id: Mapped[IntPK]
 
-    # Тот, КТО блокирует
+    # Who blocks
     user_id: Mapped[int] = mapped_column(ForeignKey(USER_ID_FK))
 
-    # Тот, КОГО блокируют
+    # Who is blocked
     blocked_user_id: Mapped[int] = mapped_column(ForeignKey(USER_ID_FK))
 
     user: Mapped["User"] = relationship(
@@ -201,7 +214,7 @@ class BlackList(Base):
 
 
 class PropertyType(str, enum.Enum):
-    """Тип недвижимости."""
+    """Real estate property type."""
 
     SECONDARY = "secondary"
     NEW_BUILDINGS = "new buildings"
@@ -209,21 +222,21 @@ class PropertyType(str, enum.Enum):
 
 
 class ConstructionStatus(str, enum.Enum):
-    """Статус строительства."""
+    """Construction status."""
 
     READY = "ready"
     NOT_READY = "not ready"
 
 
 class Purpose(str, enum.Enum):
-    """Назначение."""
+    """Property purpose."""
 
     RESIDENTIAL = "residential"
     COMMERCIAL = "commercial"
 
 
 class PurchaseTerms(str, enum.Enum):
-    """Условия покупки."""
+    """Purchase terms."""
 
     MORTGAGE = "mortgage"
     CASH = "cash"
@@ -232,7 +245,7 @@ class PurchaseTerms(str, enum.Enum):
 
 
 class Condition(str, enum.Enum):
-    """Состояние ремонта."""
+    """Renovation condition."""
 
     RENOVATED = "renovated"
     DESIGNER = "designer"
@@ -243,7 +256,7 @@ class Condition(str, enum.Enum):
 
 class SavedSearch(Base):
     """
-    Таблица сохраненных фильтров.
+    Saved search filters table.
     """
 
     # pylint: disable=too-few-public-methods
@@ -278,7 +291,7 @@ class SavedSearch(Base):
 
 
 class Message(Base):
-    """Сообщение в чате."""
+    """Chat message."""
 
     # pylint: disable=too-few-public-methods
     __tablename__ = "messages"
@@ -301,7 +314,7 @@ class Message(Base):
 
 
 class Chosen(Base):
-    """Избранное объявление."""
+    """Favorite announcement."""
 
     # pylint: disable=too-few-public-methods
     __tablename__ = "chosen"
@@ -321,7 +334,7 @@ class Chosen(Base):
 
 class VerificationCode(Base):
     """
-    Таблица для хранения временных SMS-кодов.
+    Table for storing temporary SMS codes.
     """
 
     # pylint: disable=too-few-public-methods
@@ -337,5 +350,5 @@ class VerificationCode(Base):
 
     @property
     def is_expired(self) -> bool:
-        """Проверяет, истек ли срок действия кода."""
+        """Checks if the code has expired."""
         return datetime.now(timezone.utc).replace(tzinfo=None) > self.expires_at

@@ -28,7 +28,7 @@ HOUSES_ID_FK = "houses.id"
 
 
 class DealStatus(str, enum.Enum):
-    """Статус сделки."""
+    """Deal status."""
 
     PENDING = "pending"
     ACTIVE = "active"
@@ -38,7 +38,7 @@ class DealStatus(str, enum.Enum):
 
 
 class RequestStatus(str, enum.Enum):
-    """Статус заявки на добавление в шахматку."""
+    """Status of request to add to chessboard."""
 
     PENDING = "pending"
     APPROVED = "approved"
@@ -46,7 +46,7 @@ class RequestStatus(str, enum.Enum):
 
 
 class RoomCount(str, enum.Enum):
-    """Количество комнат."""
+    """Number of rooms."""
 
     STUDIO = "studio"
     ONE = "1"
@@ -56,7 +56,7 @@ class RoomCount(str, enum.Enum):
 
 
 class CommunicationMethod(str, enum.Enum):
-    """Способ связи."""
+    """Communication method."""
 
     CALL = "call"
     MESSAGE = "message"
@@ -64,7 +64,7 @@ class CommunicationMethod(str, enum.Enum):
 
 
 class HouseType(str, enum.Enum):
-    """Тип дома."""
+    """House type."""
 
     MONOLITHIC = "monolithic"
     PANEL = "panel"
@@ -73,7 +73,7 @@ class HouseType(str, enum.Enum):
 
 
 class HouseClass(str, enum.Enum):
-    """Класс жилья."""
+    """Housing class."""
 
     ECONOMY = "economy"
     COMFORT = "comfort"
@@ -82,35 +82,35 @@ class HouseClass(str, enum.Enum):
 
 
 class ConstructionTechnology(str, enum.Enum):
-    """Технология строительства."""
+    """Construction technology."""
 
     MONOLITH = "monolith"
     BRICK = "brick"
 
 
 class TerritoryType(str, enum.Enum):
-    """Тип территории."""
+    """Territory type."""
 
     CLOSED = "closed"
     OPEN = "open"
 
 
 class Utilities(str, enum.Enum):
-    """Коммуникации."""
+    """Utilities."""
 
     CENTRAL = "central"
     AUTONOMOUS = "autonomous"
 
 
 class GasType(str, enum.Enum):
-    """Газоснабжение."""
+    """Gas supply."""
 
     MAIN = "main"
     NONE = "none"
 
 
 class HeatingType(str, enum.Enum):
-    """Отопление."""
+    """Heating type."""
 
     CENTRAL = "central"
     GAS = "gas"
@@ -118,21 +118,21 @@ class HeatingType(str, enum.Enum):
 
 
 class SewerageType(str, enum.Enum):
-    """Канализация."""
+    """Sewerage type."""
 
     CENTRAL = "central"
     SEPTIC = "septic"
 
 
 class WaterSupplyType(str, enum.Enum):
-    """Водоснабжение."""
+    """Water supply type."""
 
     CENTRAL = "central"
     WELL = "well"
 
 
 class LayoutType(str, enum.Enum):
-    """Тип планировки."""
+    """Layout type."""
 
     ISOLATED = "isolated"
     ADJACENT = "adjacent"
@@ -140,7 +140,7 @@ class LayoutType(str, enum.Enum):
 
 
 class News(Base):
-    """Новости ЖК."""
+    """Housing complex news."""
 
     # pylint: disable=too-few-public-methods
     __tablename__ = "news"
@@ -157,7 +157,7 @@ class News(Base):
 
 
 class Document(Base):
-    """Документы ЖК."""
+    """Housing complex documents."""
 
     # pylint: disable=too-few-public-methods
     __tablename__ = "documents"
@@ -174,7 +174,7 @@ class Document(Base):
 
 class HouseInfo(Base):
     """
-    Детальная информация о ЖК (Карточка ЖК).
+    Detailed information about the Housing Complex (Housing Complex Card).
     """
 
     # pylint: disable=too-few-public-methods
@@ -217,7 +217,7 @@ class HouseInfo(Base):
 
 
 class House(Base):
-    """Жилой комплекс (Дом)."""
+    """Housing Complex (House)."""
 
     # pylint: disable=too-few-public-methods
     __tablename__ = "houses"
@@ -238,10 +238,13 @@ class House(Base):
     documents: Mapped[List["Document"]] = relationship(
         "Document", back_populates="house"
     )
+    chessboard_requests: Mapped[List["ChessboardRequest"]] = relationship(
+        "ChessboardRequest", back_populates="house", cascade=CASCADE_ALL_DELETE
+    )
 
 
 class Section(Base):
-    """Секция (подъезд)."""
+    """Section (Entrance)."""
 
     # pylint: disable=too-few-public-methods
     __tablename__ = "sections"
@@ -255,7 +258,7 @@ class Section(Base):
 
 
 class Floor(Base):
-    """Этаж."""
+    """Floor."""
 
     # pylint: disable=too-few-public-methods
     __tablename__ = "floors"
@@ -270,7 +273,7 @@ class Floor(Base):
 
 class Apartment(Base):
     """
-    Физическая квартира (Ячейка в шахматке).
+    Physical apartment (Chessboard cell).
     """
 
     # pylint: disable=too-few-public-methods
@@ -289,13 +292,13 @@ class Apartment(Base):
 
 
 class Announcement(Base):
-    """Объявление о продаже"""
+    """Sales announcement."""
 
     # pylint: disable=too-few-public-methods
     __tablename__ = "announcements"
 
     id: Mapped[IntPK]
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
 
     apartment_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("apartments.id"), unique=True, nullable=True
@@ -306,7 +309,7 @@ class Announcement(Base):
     apartment_number: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     area: Mapped[Decimal] = mapped_column(Numeric(10, 2))
-    price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    price: Mapped[Decimal] = mapped_column(Numeric(14, 2))
     description: Mapped[Optional[str]] = mapped_column(Text)
     address: Mapped[str] = mapped_column(String)
 
@@ -389,13 +392,16 @@ class Announcement(Base):
         "Chosen", back_populates="announcement"
     )
     chessboard_request: Mapped[Optional["ChessboardRequest"]] = relationship(
-        "ChessboardRequest", back_populates="announcement", uselist=False
+        "ChessboardRequest",
+        back_populates="announcement",
+        uselist=False,
+        cascade=CASCADE_ALL_DELETE,
     )
 
 
 class ChessboardRequest(Base):
     """
-    Заявка на привязку объявления к шахматке (квартире в доме).
+    Chessboard linking request (linking announcement to a house apartment).
     """
 
     # pylint: disable=too-few-public-methods
@@ -418,11 +424,11 @@ class ChessboardRequest(Base):
     announcement: Mapped["Announcement"] = relationship(
         "Announcement", back_populates="chessboard_request"
     )
-    house: Mapped["House"] = relationship("House")
+    house: Mapped["House"] = relationship("House", back_populates="chessboard_requests")
 
 
 class Promotion(Base):
-    """Платное продвижение"""
+    """Paid promotion."""
 
     # pylint: disable=too-few-public-methods
     __tablename__ = "promotions"
@@ -463,7 +469,7 @@ class Promotion(Base):
 
 
 class Image(Base):
-    """Изображение."""
+    """Image."""
 
     # pylint: disable=too-few-public-methods
     __tablename__ = "images"

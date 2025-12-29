@@ -11,7 +11,7 @@ router = APIRouter(tags=["System"])
 @router.get("/health")
 async def health_check():
     """
-    Проверка работоспособности сервиса.
+    Check service health.
     """
     logger.debug("Health check requested")
     return {"status": "ok", "db_host": settings.DB_HOST, "service": "swipe-api"}

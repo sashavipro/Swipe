@@ -5,12 +5,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from redis.asyncio import Redis
 
 from src.infrastructure.storage import ImageStorage
+from src.repositories.saved_searches import SavedSearchRepository
 from src.services.admin import AdminService
 
 from src.services.auth import AuthService
 from src.services.houses import HouseService
 from src.services.announcements import AnnouncementService
 from src.services.promotions import PromotionService
+from src.services.saved_searches import SavedSearchService
 from src.services.user_profile import UserProfileService
 from src.services.subscriptions import SubscriptionService
 from src.services.favorites import FavoriteService
@@ -27,7 +29,7 @@ from src.repositories.chessboard import ChessboardRepository
 
 class ServiceProvider(Provider):
     """
-    Провайдер слоя бизнес-логики (Services).
+    Business logic layer provider (Services).
     """
 
     scope = Scope.REQUEST
@@ -36,14 +38,14 @@ class ServiceProvider(Provider):
     def get_auth_service(
         self, repo: UserRepository, session: AsyncSession, redis: Redis
     ) -> AuthService:
-        """Создает сервис аутентификации."""
+        """Creates authentication service."""
         return AuthService(repo, session, redis)
 
     @provide(scope=Scope.REQUEST)
     def get_house_service(
         self, repo: HouseRepository, session: AsyncSession, storage: ImageStorage
     ) -> HouseService:
-        """Создает сервис дома."""
+        """Creates house service."""
         return HouseService(repo, session, storage)
 
     @provide(scope=Scope.REQUEST)
@@ -53,7 +55,7 @@ class ServiceProvider(Provider):
         session: AsyncSession,
         storage: ImageStorage,
     ) -> AnnouncementService:
-        """Создает сервис объявлений."""
+        """Creates announcement service."""
         return AnnouncementService(repo, session, storage)
 
     @provide(scope=Scope.REQUEST)
@@ -63,28 +65,28 @@ class ServiceProvider(Provider):
         announcement_repo: AnnouncementRepository,
         session: AsyncSession,
     ) -> PromotionService:
-        """Создает сервис продвижений."""
+        """Creates promotion service."""
         return PromotionService(repo, announcement_repo, session)
 
     @provide(scope=Scope.REQUEST)
     def get_user_profile_service(
         self, repo: UserRepository, session: AsyncSession, storage: ImageStorage
     ) -> UserProfileService:
-        """Создает сервис пользователей."""
+        """Creates user profile service."""
         return UserProfileService(repo, session, storage)
 
     @provide(scope=Scope.REQUEST)
     def get_subscription_service(
         self, repo: SubscriptionRepository, session: AsyncSession
     ) -> SubscriptionService:
-        """Создает сервис подписок."""
+        """Creates subscription service."""
         return SubscriptionService(repo, session)
 
     @provide(scope=Scope.REQUEST)
     def get_favorite_service(
         self, repo: FavoriteRepository, session: AsyncSession
     ) -> FavoriteService:
-        """Создает сервис избранных."""
+        """Creates favorite service."""
         return FavoriteService(repo, session)
 
     @provide(scope=Scope.REQUEST)
@@ -94,7 +96,7 @@ class ServiceProvider(Provider):
         announcement_repo: AnnouncementRepository,
         session: AsyncSession,
     ) -> AdminService:
-        """Создает сервис для администратора."""
+        """Creates admin service."""
         return AdminService(repo, announcement_repo, session)
 
     @provide(scope=Scope.REQUEST)
@@ -104,5 +106,12 @@ class ServiceProvider(Provider):
         announcement_repo: AnnouncementRepository,
         session: AsyncSession,
     ) -> ChessboardService:
-        """Создает сервис заявок в шахматку."""
+        """Creates chessboard service."""
         return ChessboardService(repo, announcement_repo, session)
+
+    @provide(scope=Scope.REQUEST)
+    def get_saved_search_service(
+        self, repo: SavedSearchRepository, session: AsyncSession
+    ) -> SavedSearchService:
+        """Creates saved search service."""
+        return SavedSearchService(repo, session)

@@ -6,6 +6,12 @@ from fastapi import APIRouter, Depends, status
 from dishka.integrations.fastapi import FromDishka, inject
 
 from src.common.docs import create_error_responses
+from src.common.exceptions import (
+    ResourceNotFoundError,
+    PermissionDeniedError,
+    ResourceAlreadyExistsError,
+    AuthenticationFailedError,
+)
 from src.models import User
 from src.routes.deps import get_current_user
 from src.schemas.real_estate import (
@@ -23,7 +29,12 @@ router = APIRouter(tags=["Chessboard Requests"])
     "/announcements/{announcement_id}/link-request",
     response_model=ChessboardRequestResponse,
     status_code=status.HTTP_201_CREATED,
-    responses=create_error_responses(403, 404, 409),
+    responses=create_error_responses(
+        AuthenticationFailedError,
+        PermissionDeniedError,
+        ResourceNotFoundError,
+        ResourceAlreadyExistsError,
+    ),
 )
 @inject
 async def create_link_request(
@@ -33,7 +44,7 @@ async def create_link_request(
     user: User = Depends(get_current_user),
 ):
     """
-    Подать заявку на добавление объявления в шахматку.
+    Submit a request to link an announcement to the chessboard.
     """
     return await service.create_request(user, announcement_id, data)
 
@@ -45,14 +56,19 @@ async def get_incoming_requests(
     user: User = Depends(get_current_user),
 ):
     """
-    (Для застройщика) Получить входящие заявки на добавление в мои ЖК.
+    (For Developer) Get incoming requests for my housing complexes.
     """
     return await service.get_developer_requests(user)
 
 
 @router.post(
     "/developer/requests/{request_id}/resolve",
-    responses=create_error_responses(403, 404, 409),
+    responses=create_error_responses(
+        AuthenticationFailedError,
+        PermissionDeniedError,
+        ResourceNotFoundError,
+        ResourceAlreadyExistsError,
+    ),
 )
 @inject
 async def resolve_request(
@@ -62,6 +78,6 @@ async def resolve_request(
     user: User = Depends(get_current_user),
 ):
     """
-    (Для застройщика) Принять или отклонить заявку.
+    (For Developer) Approve or reject a request.
     """
     return await service.resolve_request(user, request_id, data.approved, data.comment)

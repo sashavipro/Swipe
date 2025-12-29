@@ -9,7 +9,7 @@ from src.models.users import UserRole, NotificationType, ComplaintReason
 
 
 class UserCreateBase(PhoneSchemaMixin, BaseModel):
-    """Базовая схема создания пользователя."""
+    """Base schema for user creation."""
 
     email: EmailStr
     password: str = Field(min_length=6, max_length=100)
@@ -19,17 +19,17 @@ class UserCreateBase(PhoneSchemaMixin, BaseModel):
 
 
 class UserRegister(UserCreateBase):
-    """Схема для публичной регистрации."""
+    """Schema for public registration."""
 
 
 class EmployeeCreate(UserCreateBase):
-    """Схема для создания сотрудника с указанием роли."""
+    """Schema for creating an employee with a role."""
 
     role: UserRole = UserRole.AGENT
 
 
 class AgentContactSchema(PhoneSchemaMixin, BaseModel):
-    """Схема контактов агента."""
+    """Agent contact schema."""
 
     first_name: Optional[str] = None
     last_name: Optional[str] = None
@@ -40,7 +40,7 @@ class AgentContactSchema(PhoneSchemaMixin, BaseModel):
 
 
 class UserUpdate(PhoneSchemaMixin, BaseModel):
-    """Схема для обновления данных профиля."""
+    """Schema for updating profile data."""
 
     first_name: Optional[str] = None
     last_name: Optional[str] = None
@@ -54,7 +54,7 @@ class UserUpdate(PhoneSchemaMixin, BaseModel):
 
 
 class UserResponse(BaseModel):
-    """Схема ответа с данными пользователя."""
+    """Schema for user data response."""
 
     id: int
     email: EmailStr
@@ -69,7 +69,7 @@ class UserResponse(BaseModel):
 
 
 class SubscriptionResponse(BaseModel):
-    """Информация о подписке."""
+    """Subscription information."""
 
     id: int
     paid_to: date
@@ -79,13 +79,13 @@ class SubscriptionResponse(BaseModel):
 
 
 class UserUpdateByAdmin(UserUpdate):
-    """Схема обновления пользователя админом (позволяет менять роль)."""
+    """Schema for updating user by admin (allows role change)."""
 
     role: Optional[UserRole] = None
 
 
 class ComplaintCreate(BaseModel):
-    """Создание жалобы."""
+    """Create complaint."""
 
     reported_user_id: int
     reason: ComplaintReason
@@ -93,7 +93,7 @@ class ComplaintCreate(BaseModel):
 
 
 class ComplaintResponse(BaseModel):
-    """Просмотр жалобы."""
+    """View complaint."""
 
     id: int
     reporter_id: int
@@ -104,3 +104,23 @@ class ComplaintResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class DeveloperCreate(UserCreateBase):
+    """Schema for creating a Developer."""
+
+
+class NotaryCreate(UserCreateBase):
+    """Schema for creating a Notary."""
+
+
+class AgentCreate(UserCreateBase):
+    """Schema for creating an Agent."""
+
+
+class ModeratorCreate(UserCreateBase):
+    """Schema for creating a Moderator."""
+
+
+class SimpleUserCreate(UserCreateBase):
+    """Schema for creating a simple user (via admin)."""

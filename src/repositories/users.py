@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 class UserRepository:
     """
-    Репозиторий для работы с пользователями.
+    Repository for working with users.
     """
 
     def __init__(self, session: AsyncSession):
@@ -24,8 +24,8 @@ class UserRepository:
 
     async def _get_one(self, **filters: Any) -> User | None:
         """
-        Универсальный внутренний метод для получения одного пользователя по фильтрам.
-        Использует SQLAlchemy filter_by (например: id=1, email="test@test.com").
+        Internal universal method for getting one user by filters.
+        Uses SQLAlchemy filter_by (e.g., id=1, email="test@test.com").
         """
         stmt = select(User).filter_by(**filters)
         result = await self.session.execute(stmt)
@@ -39,17 +39,17 @@ class UserRepository:
         return user
 
     async def get_by_email(self, email: str) -> User | None:
-        """Ищет пользователя по email."""
+        """Searches for a user by email."""
         return await self._get_one(email=email)
 
     async def get_by_id(self, user_id: int) -> User | None:
-        """Ищет пользователя по ID."""
+        """Searches for a user by ID."""
         return await self._get_one(id=user_id)
 
     async def create_user(
         self, data: UserCreateBase, hashed_password: str, role: UserRole = UserRole.USER
     ) -> User:
-        """Создает нового пользователя в базе данных."""
+        """Creates a new user in the database."""
         logger.info("Attempting to create user: email=%s, role=%s", data.email, role)
 
         try:
@@ -80,7 +80,7 @@ class UserRepository:
             ) from e
 
     async def update_user(self, user: User, update_data: dict) -> User:
-        """Обновляет поля пользователя."""
+        """Updates user fields."""
         logger.info(
             "Updating user_id=%s. Fields: %s", user.id, list(update_data.keys())
         )
@@ -104,7 +104,7 @@ class UserRepository:
 
     async def update_agent_contact(self, user: User, data: AgentContactSchema):
         """
-        Создает или обновляет контакты агента для пользователя.
+        Creates or updates agent contacts for the user.
         """
         logger.info("Updating agent contact for user_id=%s", user.id)
 
@@ -122,7 +122,7 @@ class UserRepository:
         await self.session.flush()
 
     async def add_to_blacklist(self, admin_id: int, user_id: int):
-        """Добавляет пользователя в черный список."""
+        """Adds a user to the blacklist."""
         stmt = select(BlackList).where(BlackList.blocked_user_id == user_id)
         if (await self.session.execute(stmt)).scalar_one_or_none():
             return
@@ -132,7 +132,7 @@ class UserRepository:
         await self.session.flush()
 
     async def remove_from_blacklist(self, user_id: int):
-        """Удаляет пользователя из черного списка."""
+        """Removes a user from the blacklist."""
         stmt = select(BlackList).where(BlackList.blocked_user_id == user_id)
         result = await self.session.execute(stmt)
         entry = result.scalar_one_or_none()
@@ -142,15 +142,15 @@ class UserRepository:
             await self.session.flush()
 
     async def is_user_banned(self, user_id: int) -> bool:
-        """Проверяет, находится ли пользователь в черном списке."""
+        """Checks if a user is in the blacklist."""
         stmt = select(BlackList).where(BlackList.blocked_user_id == user_id)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none() is not None
 
     async def list_users(self, role: UserRole | None = None) -> list[User]:
         """
-        Возвращает список пользователей.
-        Если передана роль, фильтрует по ней.
+        Returns a list of users.
+        If a role is provided, filters by it.
         """
         stmt = select(User).order_by(User.id)
 
@@ -161,14 +161,14 @@ class UserRepository:
         return result.scalars().all()
 
     async def delete_user(self, user: User) -> None:
-        """Удаляет пользователя."""
+        """Deletes a user."""
         await self.session.delete(user)
         await self.session.flush()
 
     async def create_complaint(
         self, reporter_id: int, data: ComplaintCreate
     ) -> Complaint:
-        """Создает новую жалобу на пользователя."""
+        """Creates a new complaint against a user."""
         complaint = Complaint(
             reporter_id=reporter_id,
             reported_user_id=data.reported_user_id,
@@ -180,7 +180,7 @@ class UserRepository:
         return complaint
 
     async def list_complaints(self, resolved: bool = False) -> list[Complaint]:
-        """Список жалоб (по умолчанию только активные/нерешенные)."""
+        """List complaints (default: active/unresolved only)."""
         stmt = (
             select(Complaint)
             .where(Complaint.is_resolved == resolved)
@@ -190,7 +190,7 @@ class UserRepository:
         return result.scalars().all()
 
     async def resolve_complaint(self, complaint_id: int):
-        """Пометить жалобу как решенную."""
+        """Mark a complaint as resolved."""
         stmt = select(Complaint).where(Complaint.id == complaint_id)
         result = await self.session.execute(stmt)
         complaint = result.scalar_one_or_none()

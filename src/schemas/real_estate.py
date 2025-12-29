@@ -24,28 +24,28 @@ from src.models.real_estate import (
 
 class ApartmentCreateNested(BaseModel):
     """
-    Вложенная схема для создания слота квартиры.
+    Nested schema for creating an apartment slot.
     """
 
     number: int
 
 
 class FloorCreate(BaseModel):
-    """Схема для создания этажа."""
+    """Schema for creating a floor."""
 
     number: int
     apartments: List[ApartmentCreateNested]
 
 
 class SectionCreate(BaseModel):
-    """Схема для создания секции."""
+    """Schema for creating a section."""
 
     name: str
     floors: List[FloorCreate]
 
 
 class HouseInfoBase(BaseModel):
-    """Базовая схема информации о ЖК (карточка)."""
+    """Base schema for Housing Complex information (card)."""
 
     main_image: Optional[str] = None
     description: Optional[str] = None
@@ -74,7 +74,7 @@ class HouseInfoBase(BaseModel):
 
 
 class HouseCreate(BaseModel):
-    """Схема для создания дома (ЖК)."""
+    """Schema for creating a house (Housing Complex)."""
 
     name: str
     sections: List[SectionCreate]
@@ -82,14 +82,14 @@ class HouseCreate(BaseModel):
 
 
 class HouseInfoResponse(HouseInfoBase):
-    """Схема ответа информации о ЖК."""
+    """Schema for Housing Complex information response."""
 
     id: int
     model_config = ConfigDict(from_attributes=True)
 
 
 class NewsCreate(BaseModel):
-    """Создание новости."""
+    """Create news."""
 
     title: str
     description: str
@@ -97,7 +97,7 @@ class NewsCreate(BaseModel):
 
 
 class NewsResponse(BaseModel):
-    """Схема ответа новости ЖК."""
+    """Schema for Housing Complex news response."""
 
     id: int
     title: str
@@ -107,14 +107,14 @@ class NewsResponse(BaseModel):
 
 
 class DocumentCreate(BaseModel):
-    """Создание документа."""
+    """Create document."""
 
     doc_url: str
     is_excel: bool = False
 
 
 class DocumentResponse(BaseModel):
-    """Схема ответа документа ЖК."""
+    """Schema for Housing Complex document response."""
 
     id: int
     doc_url: str
@@ -123,7 +123,7 @@ class DocumentResponse(BaseModel):
 
 
 class HouseResponse(BaseModel):
-    """Схема ответа с данными о доме."""
+    """Schema for house response data."""
 
     id: int
     name: str
@@ -136,7 +136,7 @@ class HouseResponse(BaseModel):
 
 
 class HouseInfoUpdate(BaseModel):
-    """Схема для редактирования карточки ЖК."""
+    """Schema for editing Housing Complex card."""
 
     main_image: Optional[str] = None
     description: Optional[str] = None
@@ -165,7 +165,7 @@ class HouseInfoUpdate(BaseModel):
 
 
 class PromotionCreate(BaseModel):
-    """Схема для создания настроек продвижения объявления."""
+    """Schema for creating announcement promotion settings."""
 
     is_turbo: bool = False
     is_colored: bool = False
@@ -183,7 +183,7 @@ class PromotionCreate(BaseModel):
 
 
 class PromotionResponse(BaseModel):
-    """Схема ответа с данными о продвижении."""
+    """Schema for promotion response data."""
 
     id: int
     announcement_id: int
@@ -199,15 +199,33 @@ class PromotionResponse(BaseModel):
 
 
 class ImageResponse(BaseModel):
-    """Схема ответа с данными об изображении."""
+    """Schema for image response data."""
 
     id: int
     image_url: str
+    position: int
     model_config = ConfigDict(from_attributes=True)
 
 
+class ImageUpdateItem(BaseModel):
+    """
+    Schema for updating an image.
+    - id: If provided, means the image already exists, update its position.
+    - content: If provided (Base64), means it's a new image.
+    """
+
+    id: Optional[int] = Field(
+        default=None,
+        description="ID of existing image (to keep it and change order).",
+    )
+    content: Optional[str] = Field(
+        default=None,
+        description="Base64 string for adding a new image.",
+    )
+
+
 class AnnouncementCreate(BaseModel):
-    """Схема для создания объявления."""
+    """Schema for creating an announcement."""
 
     apartment_id: Optional[int] = None
 
@@ -250,13 +268,11 @@ class AnnouncementCreate(BaseModel):
     latitude: Optional[str] = None
     longitude: Optional[str] = None
 
-    images: List[str] = Field(
-        default=[], description="Список изображений в формате Base64"
-    )
+    images: List[str] = Field(default=[], description="List of images in Base64 format")
 
 
 class AnnouncementResponse(BaseModel):
-    """Схема ответа с полными данными об объявлении."""
+    """Schema for response with full announcement data."""
 
     id: int
     user_id: int
@@ -314,7 +330,7 @@ class AnnouncementResponse(BaseModel):
 
 class AnnouncementUpdate(BaseModel):
     """
-    Схема для обновления объявления.
+    Schema for updating an announcement.
     """
 
     price: Optional[Decimal] = None
@@ -357,12 +373,12 @@ class AnnouncementUpdate(BaseModel):
     latitude: Optional[str] = None
     longitude: Optional[str] = None
 
-    images: Optional[List[str]] = None
+    images: Optional[List[ImageUpdateItem]] = None
 
 
 class PromotionUpdate(BaseModel):
     """
-    Схема для обновления продвижения.
+    Schema for updating promotion.
     """
 
     is_turbo: Optional[bool] = None
@@ -381,13 +397,13 @@ class PromotionUpdate(BaseModel):
 
 
 class AnnouncementReject(BaseModel):
-    """Схема для отклонения объявления."""
+    """Schema for rejecting an announcement."""
 
     reason: str
 
 
 class ChessboardRequestCreate(BaseModel):
-    """Создание заявки на добавление в шахматку."""
+    """Create request to add to chessboard."""
 
     target_house_id: int
     target_section_id: int
@@ -396,7 +412,7 @@ class ChessboardRequestCreate(BaseModel):
 
 
 class ChessboardRequestResponse(BaseModel):
-    """Ответ заявки."""
+    """Request response."""
 
     id: int
     announcement_id: int
@@ -409,7 +425,35 @@ class ChessboardRequestResponse(BaseModel):
 
 
 class ResolveRequestSchema(BaseModel):
-    """Схема для принятия решения по заявке (одобрение/отклонение)."""
+    """Schema for deciding on a request (approve/reject)."""
 
     approved: bool
     comment: str | None = None
+
+
+class AnnouncementFilter(BaseModel):
+    """
+    Filter for searching announcements.
+    """
+
+    type_secondary: bool = False
+    type_new_buildings: bool = False
+    type_cottage: bool = False
+
+    status_house: Optional[DealStatus] = None
+
+    district: Optional[str] = None  # Search by substring in address
+    microdistrict: Optional[str] = None  # Search by substring in address
+
+    price_from: Optional[Decimal] = None
+    price_to: Optional[Decimal] = None
+    area_from: Optional[Decimal] = None
+    area_to: Optional[Decimal] = None
+
+    purpose: Optional[str] = None
+    purchase_terms: Optional[str] = None
+    condition: Optional[str] = None
+    number_of_rooms: Optional[RoomCount] = None
+    house_type: Optional[HouseType] = None
+    house_class: Optional[HouseClass] = None
+    has_balcony: Optional[bool] = None

@@ -2,12 +2,17 @@
 
 import asyncio
 import base64
+import binascii
 import io
 import logging
-from typing import Sequence
+from typing import Sequence, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.common.exceptions import ResourceNotFoundError, PermissionDeniedError
+from src.common.exceptions import (
+    ResourceNotFoundError,
+    PermissionDeniedError,
+    BadRequestError,
+)
 from src.infrastructure.storage import ImageStorage
 from src.models import User
 from src.models.real_estate import DealStatus, Image, Announcement
@@ -17,6 +22,8 @@ from src.schemas.real_estate import (
     AnnouncementCreate,
     AnnouncementResponse,
     AnnouncementUpdate,
+    AnnouncementFilter,
+    ImageUpdateItem,
 )
 from src.common.utils import extract_public_id_for_image
 
@@ -25,8 +32,8 @@ logger = logging.getLogger(__name__)
 
 class AnnouncementService:
     """
-    Сервис для работы с объявлениями.
-    Отвечает за бизнес-логику: обработку изображений, проверку прав и оркестрацию.
+    Service for working with announcements.
+    Responsible for business logic: image processing, rights checking, and orchestration.
     """
 
     def __init__(
@@ -39,7 +46,9 @@ class AnnouncementService:
     async def _process_image(
         self, index: int, image_str: str, user_id: int
     ) -> str | None:
-        """Вспомогательный метод для обработки и загрузки."""
+        """Helper method for processing and uploading an image."""
+        # 1. Validation & Decoding
+        # Errors here (BadRequestError) should propagate to the user
         try:
             if ";base64," in image_str:
                 _, encoded = image_str.split(";base64,")
@@ -47,27 +56,38 @@ class AnnouncementService:
                 encoded = image_str
 
             decoded_bytes = base64.b64decode(encoded)
+        except (binascii.Error, ValueError) as e:
+            logger.warning(
+                "Invalid base64 string for user %s at index %s: %s",
+                user_id,
+                index,
+                e,
+            )
+            raise BadRequestError() from e
+
+        # 2. Uploading
+        # Unexpected errors here should be logged, and we skip the image (return None)
+        try:
             file_obj = io.BytesIO(decoded_bytes)
             file_obj.name = f"upload_{user_id}_{index}.jpg"
 
             url = await self.storage.upload_file(file_obj, folder="real_estate")
             return url
-
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(
-                "Error processing image index %s for user %s: %s", index, user_id, e
+                "Error uploading image index %s for user %s: %s", index, user_id, e
             )
             return None
 
     async def _process_image_with_index(self, index: int, image_str: str, user_id: int):
-        """Обертка для возврата индекса с url."""
+        """Wrapper to return index with url."""
         url = await self._process_image(index, image_str, user_id)
         return index, url
 
     async def create_announcement(
         self, user_id: int, data: AnnouncementCreate
     ) -> AnnouncementResponse:
-        """Создает объявление с загрузкой изображений."""
+        """Creates an announcement with image upload."""
         logger.info("Starting announcement creation for user_id=%s", user_id)
 
         upload_tasks = [
@@ -100,96 +120,104 @@ class AnnouncementService:
     async def get_announcements(
         self, limit: int = 20, offset: int = 0
     ) -> Sequence[AnnouncementResponse]:
-        """Получает список объявлений."""
+        """Retrieves a list of announcements."""
         return await self.repo.get_announcements(
             status=DealStatus.ACTIVE, limit=limit, offset=offset
         )
 
-    async def _prepare_image_objects(
+    async def _prepare_final_images_list(
         self,
-        new_images_input: list[str],
-        current_images_map: dict[str, Image],
+        images_input: list[ImageUpdateItem],
+        db_images_map: dict[int, Image],
         user_id: int,
-    ) -> list[Image]:
-        """Подготавливает список объектов Image (существующих и новых)."""
-        final_image_objects = [None] * len(new_images_input)
+    ) -> tuple[list[Optional[Image]], set[int]]:
+        """
+        Prepares the final list of images and tasks for uploading new ones.
+        Returns: (final_list_with_gaps, kept_image_ids)
+        """
+        final_images_list = [None] * len(images_input)
+        kept_image_ids = set()
         upload_tasks = []
 
-        for i, img_str in enumerate(new_images_input):
-            if img_str.startswith("http"):
-                if img_str in current_images_map:
-                    final_image_objects[i] = current_images_map[img_str]
+        for i, item in enumerate(images_input):
+            if item.id is not None:
+                if item.id in db_images_map:
+                    img_obj = db_images_map[item.id]
+                    img_obj.position = i
+                    final_images_list[i] = img_obj
+                    kept_image_ids.add(item.id)
                 else:
-                    final_image_objects[i] = Image(image_url=img_str)
-            else:
-                upload_tasks.append(self._process_image_with_index(i, img_str, user_id))
+                    logger.warning(
+                        "Image ID %s not found in announcement, skipping", item.id
+                    )
+            elif item.content:
+                upload_tasks.append(
+                    self._process_image_with_index(i, item.content, user_id)
+                )
 
         if upload_tasks:
             results = await asyncio.gather(*upload_tasks)
             for idx, url in results:
                 if url:
-                    final_image_objects[idx] = Image(image_url=url)
+                    new_img = Image(image_url=url, position=idx)
+                    final_images_list[idx] = new_img
 
-        return [obj for obj in final_image_objects if obj is not None]
+        return final_images_list, kept_image_ids
 
     async def _handle_images_update(
         self,
         announcement: Announcement,
-        new_images_input: list[str],
+        images_input: list[ImageUpdateItem],
         user_id: int,
     ) -> list[Image]:
         """
-        Обрабатывает список изображений при обновлении.
+        Processes the image list during an update.
         """
-        current_images_map = {img.image_url: img for img in announcement.images}
+        db_images_map = {img.id: img for img in announcement.images}
 
-        valid_image_objects = await self._prepare_image_objects(
-            new_images_input, current_images_map, user_id
+        final_images_list, kept_image_ids = await self._prepare_final_images_list(
+            images_input, db_images_map, user_id
         )
 
-        # Cleanup removed images
-        new_urls_set = {obj.image_url for obj in valid_image_objects}
+        valid_images = [img for img in final_images_list if img is not None]
+
         cleanup_tasks = []
-        for url in current_images_map:
-            if url not in new_urls_set:
-                public_id = extract_public_id_for_image(url)
+        for img_id, img_obj in db_images_map.items():
+            if img_id not in kept_image_ids:
+                public_id = extract_public_id_for_image(img_obj.image_url)
                 if public_id:
                     cleanup_tasks.append(self.storage.delete_file(public_id))
 
         if cleanup_tasks:
             await asyncio.gather(*cleanup_tasks, return_exceptions=True)
 
-        return valid_image_objects
+        return valid_images
 
     async def update_announcement(
         self, user: User, announcement_id: int, data: AnnouncementUpdate
     ) -> AnnouncementResponse:
-        """
-        Обновляет объявление. Сохраняет ID существующих картинок.
-        """
+        """Updates an announcement."""
         announcement = await self.repo.get_announcement_by_criteria(
             announcement_id=announcement_id
         )
         if not announcement:
-            raise ResourceNotFoundError(
-                f"Announcement with id {announcement_id} not found"
-            )
+            raise ResourceNotFoundError()
 
         is_owner = announcement.user_id == user.id
         is_admin = user.role in [UserRole.MODERATOR, UserRole.AGENT]
 
         if not is_owner and not is_admin:
-            raise PermissionDeniedError(
-                "You do not have permission to update this announcement"
-            )
+            raise PermissionDeniedError()
 
         update_data = data.model_dump(exclude_unset=True)
 
         if "images" in update_data:
-            new_images_input = update_data.pop("images")
-            update_data["images"] = await self._handle_images_update(
-                announcement, new_images_input, user.id
+            images_input = data.images
+            del update_data["images"]
+            updated_images_list = await self._handle_images_update(
+                announcement, images_input, user.id
             )
+            announcement.images = updated_images_list
 
         if is_owner and not is_admin:
             if "status" in update_data:
@@ -212,20 +240,18 @@ class AnnouncementService:
         announcement_id: int | None = None,
         apartment_id: int | None = None,
     ):
-        """Удаляет объявление."""
+        """Deletes an announcement."""
         announcement = await self.repo.get_announcement_by_criteria(
             announcement_id=announcement_id, apartment_id=apartment_id
         )
         if not announcement:
-            raise ResourceNotFoundError("Announcement not found")
+            raise ResourceNotFoundError()
 
         is_owner = announcement.user_id == user.id
         is_admin = user.role in [UserRole.MODERATOR, UserRole.AGENT]
 
         if not is_owner and not is_admin:
-            raise PermissionDeniedError(
-                "You do not have permission to delete this announcement"
-            )
+            raise PermissionDeniedError()
 
         if announcement.images:
             for img in announcement.images:
@@ -238,3 +264,27 @@ class AnnouncementService:
 
         logger.info("Announcement %s deleted by user %s", announcement.id, user.id)
         return {"status": "deleted", "id": announcement.id}
+
+    async def search_announcements(
+        self, filter_params: AnnouncementFilter, limit: int = 20, offset: int = 0
+    ) -> Sequence[AnnouncementResponse]:
+        """
+        Searches announcements by filter.
+        """
+        if (
+            filter_params.price_from
+            and filter_params.price_to
+            and filter_params.price_from > filter_params.price_to
+        ):
+            logger.warning("Price range invalid: from > to")
+            raise BadRequestError()
+
+        if (
+            filter_params.area_from
+            and filter_params.area_to
+            and filter_params.area_from > filter_params.area_to
+        ):
+            logger.warning("Area range invalid: from > to")
+            raise BadRequestError()
+
+        return await self.repo.search_announcements(filter_params, limit, offset)

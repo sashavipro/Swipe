@@ -6,15 +6,15 @@ from pydantic import BaseModel, field_validator
 
 class PhoneSchemaMixin(BaseModel):
     """
-    Миксин для валидации поля 'phone'.
-    Подключается к любой схеме, где есть поле phone (обязательное или опциональное).
+    Mixin for validating the 'phone' field.
+    Can be attached to any schema containing a phone field (mandatory or optional).
     """
 
     @field_validator("phone", check_fields=False)
     @classmethod
     def validate_phone_format(cls, v: str | None) -> str | None:
         """
-        Очищает и проверяет формат телефона.
+        Cleans and validates the phone format.
         """
         if v is None:
             return None

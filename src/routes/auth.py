@@ -6,16 +6,20 @@ from fastapi import APIRouter, status
 from dishka.integrations.fastapi import FromDishka, inject
 
 from src.common.docs import create_error_responses
+from src.common.exceptions import (
+    ResourceAlreadyExistsError,
+    AuthenticationFailedError,
+    ResourceNotFoundError,
+    BadRequestError,
+)
 from src.schemas.auth import (
     UserRegister,
     UserLogin,
     Token,
     RefreshTokenRequest,
-    VerificationTokenResponse,
-    EmailVerificationRequest,
-    EmailVerificationCheck,
     ResetPasswordRequest,
     ForgotPasswordRequest,
+    UserVerification,
 )
 from src.services.auth import AuthService
 
@@ -24,42 +28,9 @@ router = APIRouter(tags=["Auth"])
 
 
 @router.post(
-    "/send-code",
-    status_code=status.HTTP_200_OK,
-    responses=create_error_responses(409, 422),
-)
-@inject
-async def send_verification_code(
-    service: FromDishka[AuthService],
-    data: EmailVerificationRequest,
-):
-    """
-    Шаг 1. Отправить код верификации на Email.
-    """
-    return await service.send_verification_code(data.email)
-
-
-@router.post(
-    "/verify-code",
-    response_model=VerificationTokenResponse,
-    status_code=status.HTTP_200_OK,
-    responses=create_error_responses(401, 422),
-)
-@inject
-async def verify_code(
-    service: FromDishka[AuthService],
-    data: EmailVerificationCheck,
-):
-    """
-    Шаг 2. Проверить полученный Email код.
-    """
-    return await service.verify_email_code(data.email, data.code)
-
-
-@router.post(
     "/register",
-    status_code=status.HTTP_201_CREATED,
-    responses=create_error_responses(401, 403, 409, 422),
+    status_code=status.HTTP_200_OK,
+    responses=create_error_responses(ResourceAlreadyExistsError, BadRequestError),
 )
 @inject
 async def register(
@@ -67,32 +38,56 @@ async def register(
     data: UserRegister,
 ):
     """
-    Шаг 3. Регистрация (требует verification_token от Шага 2).
+    Step 1. Initiate registration.
+    Sends verification code to email. Data is stored temporarily.
     """
     return await service.register_user(data)
 
 
-@router.post("/login", response_model=Token, responses=create_error_responses(401, 422))
+@router.post(
+    "/verify",
+    status_code=status.HTTP_201_CREATED,
+    responses=create_error_responses(
+        AuthenticationFailedError, ResourceAlreadyExistsError
+    ),
+)
+@inject
+async def verify_registration(
+    service: FromDishka[AuthService],
+    data: UserVerification,
+):
+    """
+    Step 2. Complete registration.
+    Verifies code and creates user in database.
+    """
+    return await service.verify_registration(data.email, data.code)
+
+
+@router.post(
+    "/login",
+    response_model=Token,
+    responses=create_error_responses(AuthenticationFailedError),
+)
 @inject
 async def login(
     service: FromDishka[AuthService],
     data: UserLogin,
 ):
     """
-    Вход в систему. Возвращает Access и Refresh токены.
-    - **401**: Неверный логин или пароль.
+    Log in to the system. Returns Access and Refresh tokens.
     """
     return await service.authenticate_user(data)
 
 
 @router.post(
-    "/refresh", response_model=Token, responses=create_error_responses(401, 422)
+    "/refresh",
+    response_model=Token,
+    responses=create_error_responses(AuthenticationFailedError),
 )
 @inject
 async def refresh_tokens(service: FromDishka[AuthService], data: RefreshTokenRequest):
     """
-    Принимает старый Refresh Token, возвращает новую пару (Access + Refresh).
-    - **401**: Токен невалиден или просрочен.
+    Refresh tokens using a valid Refresh Token.
     """
     return await service.refresh_token(data.refresh_token)
 
@@ -102,12 +97,17 @@ async def refresh_tokens(service: FromDishka[AuthService], data: RefreshTokenReq
 async def forgot_password(
     service: FromDishka[AuthService], data: ForgotPasswordRequest
 ):
-    """Запрос на восстановление пароля."""
+    """Request password reset."""
     return await service.request_password_reset(data.email)
 
 
-@router.post("/reset-password")
+@router.post(
+    "/reset-password",
+    responses=create_error_responses(
+        AuthenticationFailedError, ResourceNotFoundError, BadRequestError
+    ),
+)
 @inject
 async def reset_password(service: FromDishka[AuthService], data: ResetPasswordRequest):
-    """Сброс пароля с использованием токена."""
+    """Reset password using a token."""
     return await service.reset_password(data)

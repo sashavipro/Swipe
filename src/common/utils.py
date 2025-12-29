@@ -9,8 +9,8 @@ from src.common.exceptions import PermissionDeniedError
 
 def check_owner_or_admin(user: User, owner_id: int, error_msg: str) -> None:
     """
-    Проверяет, является ли пользователь владельцем ресурса или администратором/агентом.
-    Если нет — вызывает исключение.
+    Checks if the user is the resource owner or an administrator/agent.
+    If not, raises an exception.
     """
     is_owner = user.id == owner_id
     is_admin = user.role in [UserRole.MODERATOR, UserRole.AGENT]
@@ -21,9 +21,9 @@ def check_owner_or_admin(user: User, owner_id: int, error_msg: str) -> None:
 
 def extract_public_id_for_image(image_url: str) -> Optional[str]:
     """
-    Извлекает public_id из ссылки Cloudinary (для картинок).
-    Обрезает расширение в конце.
-    Пример: https://res.cloudinary.com/.../swipe_project/real_estate/xyz.jpg
+    Extracts public_id from a Cloudinary link (for images).
+    Trims the extension at the end.
+    Example: https://res.cloudinary.com/.../swipe_project/real_estate/xyz.jpg
     -> swipe_project/real_estate/xyz
     """
     if not image_url:

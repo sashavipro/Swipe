@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 class SubscriptionRepository:
     """
-    Репозиторий для работы с подпиской.
+    Repository for working with subscriptions.
     """
 
     # pylint: disable=too-few-public-methods
@@ -21,8 +21,8 @@ class SubscriptionRepository:
 
     async def get_by_id_with_subscription(self, user_id: int) -> User | None:
         """
-        Получить юзера вместе с данными о подписке.
-        Возвращает None, если пользователь не найден.
+        Get user with subscription data.
+        Returns None if user is not found.
         """
         logger.debug("Fetching subscription data for user_id=%s", user_id)
 

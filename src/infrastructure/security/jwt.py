@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
-# Pylint путает этот файл (jwt.py) с библиотекой jwt, поэтому отключаем проверки
+# Pylint confuses this file (jwt.py) with the jwt library, so we disable checks
 # pylint: disable=import-self, no-member
 import jwt
 from src.config import settings
@@ -11,7 +11,7 @@ from src.config import settings
 
 class JWTHandler:
     """
-    Утилита для работы с JWT токенами (кодирование и декодирование).
+    Utility for working with JWT tokens (encoding and decoding).
     """
 
     @staticmethod
@@ -19,12 +19,11 @@ class JWTHandler:
         data: dict, token_type: Literal["access", "refresh"], expires_delta: timedelta
     ) -> str:
         """
-        Создает JWT токен с указанным типом и временем жизни.
+        Creates a JWT token with the specified type and lifetime.
         """
         to_encode = data.copy()
         expire = datetime.now(timezone.utc) + expires_delta
 
-        # Добавляем тип токена, чтобы рефреш нельзя было использовать вместо аксесса
         to_encode.update({"exp": expire, "type": token_type})
 
         encoded_jwt = jwt.encode(
@@ -35,7 +34,7 @@ class JWTHandler:
     @staticmethod
     def create_access_token(data: dict) -> str:
         """
-        Генерирует Access Token.
+        Generates Access Token.
         """
         return JWTHandler.create_token(
             data, "access", timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -44,7 +43,7 @@ class JWTHandler:
     @staticmethod
     def create_refresh_token(data: dict) -> str:
         """
-        Генерирует Refresh Token.
+        Generates Refresh Token.
         """
         return JWTHandler.create_token(
             data, "refresh", timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
@@ -53,7 +52,7 @@ class JWTHandler:
     @staticmethod
     def decode_token(token: str) -> dict | None:
         """
-        Декодирует токен. Возвращает payload или None, если токен невалиден.
+        Decodes the token. Returns payload or None if the token is invalid.
         """
         try:
             payload = jwt.decode(
@@ -66,8 +65,8 @@ class JWTHandler:
     @staticmethod
     def create_verification_token(phone: str) -> str:
         """
-        Генерирует токен, подтверждающий владение номером.
-        Живет короткое время (15 минут).
+        Generates a token confirming ownership of the number.
+        Lives for a short time (15 minutes).
         """
         return JWTHandler.create_token(
             data={"sub": phone},
@@ -78,8 +77,8 @@ class JWTHandler:
     @staticmethod
     def create_reset_password_token(email: str) -> str:
         """
-        Генерирует токен для сброса пароля.
-        Срок жизни: 30 минут.
+        Generates a token for password reset.
+        Lifetime: 30 minutes.
         """
         return JWTHandler.create_token(
             data={"sub": email},

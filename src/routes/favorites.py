@@ -6,6 +6,11 @@ from fastapi import APIRouter, Depends, status
 from dishka.integrations.fastapi import FromDishka, inject
 
 from src.common.docs import create_error_responses
+from src.common.exceptions import (
+    ResourceNotFoundError,
+    ResourceAlreadyExistsError,
+    AuthenticationFailedError,
+)
 from src.models.users import User
 from src.schemas.real_estate import AnnouncementResponse
 from src.routes.deps import get_current_user
@@ -18,21 +23,23 @@ router = APIRouter(tags=["Favorite"])
 @router.get(
     "/me/favorites",
     response_model=list[AnnouncementResponse],
-    responses=create_error_responses(401),
+    responses=create_error_responses(AuthenticationFailedError),
 )
 @inject
 async def get_favorites(
     service: FromDishka[FavoriteService],
     user: User = Depends(get_current_user),
 ):
-    """Показать избранные объявления."""
+    """Show favorite announcements."""
     return await service.get_my_favorites(user.id)
 
 
 @router.post(
     "/me/favorites/{announcement_id}",
     status_code=status.HTTP_201_CREATED,
-    responses=create_error_responses(401, 404, 409, 422),
+    responses=create_error_responses(
+        AuthenticationFailedError, ResourceNotFoundError, ResourceAlreadyExistsError
+    ),
 )
 @inject
 async def add_to_favorites(
@@ -41,16 +48,15 @@ async def add_to_favorites(
     user: User = Depends(get_current_user),
 ):
     """
-    Добавить в избранное.
-    - **409**: Уже в избранном.
-    - **404**: Объявление не найдено.
+    Add to favorites.
     """
     logger.info("User %s adding announcement %s to favorites", user.id, announcement_id)
     return await service.add_to_favorites(user.id, announcement_id)
 
 
 @router.delete(
-    "/me/favorites/{announcement_id}", responses=create_error_responses(401, 422)
+    "/me/favorites/{announcement_id}",
+    responses=create_error_responses(AuthenticationFailedError),
 )
 @inject
 async def remove_from_favorites(
@@ -58,7 +64,7 @@ async def remove_from_favorites(
     announcement_id: int,
     user: User = Depends(get_current_user),
 ):
-    """Удалить из избранного."""
+    """Remove from favorites."""
     logger.info(
         "User %s removing announcement %s from favorites", user.id, announcement_id
     )

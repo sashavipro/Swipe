@@ -6,20 +6,13 @@ from src.schemas.users import UserCreateBase
 
 
 class EmailVerificationRequest(BaseModel):
-    """Запрос на отправку кода на Email."""
+    """Request to send verification code to Email."""
 
     email: EmailStr
-
-
-class EmailVerificationCheck(BaseModel):
-    """Проверка Email кода."""
-
-    email: EmailStr
-    code: str = Field(min_length=4, max_length=6)
 
 
 class VerificationTokenResponse(BaseModel):
-    """Ответ после успешной проверки кода."""
+    """Response after successful code verification."""
 
     verification_token: str
     message: str
@@ -27,23 +20,31 @@ class VerificationTokenResponse(BaseModel):
 
 class UserRegister(UserCreateBase):
     """
-    Схема для регистрации нового пользователя.
-    Наследует поля (email, password, name, phone) от UserCreateBase.
-    Добавляет verification_token.
+    Schema for new user registration.
+    Inherits fields (email, password, name, phone) from UserCreateBase.
     """
 
-    verification_token: str
+    # No extra fields needed now
+
+
+class UserVerification(BaseModel):
+    """
+    Schema for finalizing registration.
+    """
+
+    email: EmailStr
+    code: str = Field(min_length=4, max_length=6)
 
 
 class UserLogin(BaseModel):
-    """Схема для входа в систему."""
+    """Schema for system login."""
 
     email: EmailStr
     password: str
 
 
 class Token(BaseModel):
-    """Модель ответа с токенами."""
+    """Token response model."""
 
     access_token: str
     refresh_token: str
@@ -51,13 +52,13 @@ class Token(BaseModel):
 
 
 class RefreshTokenRequest(BaseModel):
-    """Запрос на обновление токена."""
+    """Request to refresh token."""
 
     refresh_token: str
 
 
 class UserResponse(BaseModel):
-    """Публичный профиль пользователя."""
+    """Public user profile."""
 
     id: int
     email: str
@@ -65,20 +66,20 @@ class UserResponse(BaseModel):
     last_name: str
 
     class Config:
-        """Конфигурация Pydantic."""
+        """Pydantic configuration."""
 
         # pylint: disable=too-few-public-methods
         from_attributes = True
 
 
 class ForgotPasswordRequest(BaseModel):
-    """Запрос на сброс пароля."""
+    """Password reset request."""
 
     email: EmailStr
 
 
 class ResetPasswordRequest(BaseModel):
-    """Установка нового пароля."""
+    """Set new password."""
 
     token: str
     new_password: str = Field(min_length=6, max_length=100)

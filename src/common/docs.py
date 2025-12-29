@@ -1,61 +1,32 @@
 """src/core/docs.py."""
 
-from typing import Any, Dict
+from typing import Any, Dict, Type
 from src.schemas.response import ErrorResponse
+from src.common.exceptions import DomainException
 
 
-def create_error_responses(*status_codes: int) -> Dict[int, Dict[str, Any]]:
+def create_error_responses(
+    *exceptions: Type[DomainException],
+) -> Dict[int, Dict[str, Any]]:
     """
-    Генерирует словарь responses для FastAPI swagger.
-    Принимает список кодов (401, 403, 404 и т.д.).
+    Generates a dictionary of responses for FastAPI swagger based on the passed exception classes.
+
+    Usage example:
+    responses=create_error_responses(ResourceNotFoundError, PermissionDeniedError)
     """
     responses = {}
 
-    # Описания стандартных ошибок
-    descriptions = {
-        400: "Bad Request - Некорректный запрос",
-        401: "Unauthorized - Неверный токен или логин/пароль",
-        403: "Forbidden - Недостаточно прав (например, вы не модератор)",
-        404: "Not Found - Ресурс не найден",
-        409: "Conflict - Дубликат данных (email/телефон уже занят)",
-        422: "Validation Error - Ошибка валидации данных",
-    }
+    for exc_class in exceptions:
+        status_code = exc_class.status_code
+        code = exc_class.code
+        message = exc_class.message
 
-    # Примеры кодов ошибок для документации
-    examples = {
-        400: {"status": "error", "code": "BAD_REQUEST", "message": "Invalid data"},
-        401: {
-            "status": "error",
-            "code": "AUTHENTICATION_FAILED",
-            "message": "Invalid token",
-        },
-        403: {
-            "status": "error",
-            "code": "PERMISSION_DENIED",
-            "message": "Only moderators can perform this action",
-        },
-        404: {
-            "status": "error",
-            "code": "RESOURCE_NOT_FOUND",
-            "message": "User not found",
-        },
-        409: {
-            "status": "error",
-            "code": "RESOURCE_ALREADY_EXISTS",
-            "message": "Email already taken",
-        },
-        422: {
-            "status": "error",
-            "code": "VALIDATION_ERROR",
-            "message": "phone: Invalid format; email: value is not a valid email address",
-        },
-    }
+        example = {"status": "error", "code": code, "message": message}
 
-    for code in status_codes:
-        responses[code] = {
+        responses[status_code] = {
             "model": ErrorResponse,
-            "description": descriptions.get(code, "Error"),
-            "content": {"application/json": {"example": examples.get(code, {})}},
+            "description": f"{code}: {message}",
+            "content": {"application/json": {"example": example}},
         }
 
     return responses

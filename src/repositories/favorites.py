@@ -16,14 +16,14 @@ logger = logging.getLogger(__name__)
 
 class FavoriteRepository:
     """
-    Репозиторий для работы с избранным.
+    Repository for working with favorites.
     """
 
     def __init__(self, session: AsyncSession):
         self.session = session
 
     async def add_favorite(self, user_id: int, announcement_id: int) -> None:
-        """Добавляет объявление в избранное."""
+        """Adds an announcement to favorites."""
         logger.info(
             "Adding announcement_id=%s to favorites for user_id=%s",
             announcement_id,
@@ -49,7 +49,7 @@ class FavoriteRepository:
             ) from e
 
     async def remove_favorite(self, user_id: int, announcement_id: int) -> None:
-        """Удаляет объявление из избранного."""
+        """Removes an announcement from favorites."""
         logger.info(
             "Removing announcement_id=%s from favorites for user_id=%s",
             announcement_id,
@@ -70,7 +70,7 @@ class FavoriteRepository:
             logger.debug("Favorite not found, nothing to remove (idempotent)")
 
     async def get_favorite_status(self, user_id: int, announcement_id: int) -> bool:
-        """Проверяет, находится ли объявление в избранном."""
+        """Checks if an announcement is in favorites."""
         stmt = select(Chosen).where(
             Chosen.user_id == user_id, Chosen.announcement_id == announcement_id
         )
@@ -81,7 +81,7 @@ class FavoriteRepository:
         return exists
 
     async def get_favorites(self, user_id: int) -> list[Announcement]:
-        """Возвращает список избранного."""
+        """Returns a list of favorites."""
         logger.debug("Fetching favorites list for user_id=%s", user_id)
 
         query = (

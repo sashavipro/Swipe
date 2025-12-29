@@ -13,19 +13,21 @@ from src.schemas.real_estate import AnnouncementResponse, AnnouncementReject
 from src.schemas.users import (
     UserUpdateByAdmin,
     UserResponse,
-    EmployeeCreate,
     ComplaintCreate,
     ComplaintResponse,
+    DeveloperCreate,
+    NotaryCreate,
+    AgentCreate,
+    ModeratorCreate,
+    SimpleUserCreate,
+    UserCreateBase,
 )
 
 logger = logging.getLogger(__name__)
 
-PERMISSION_DENIED = "Permission denied"
-ONLY_MODERATORS = "Only moderators can perform this action"
-
 
 class AdminService:
-    """Сервис для административных действий (бан, модерация, жалобы)."""
+    """Service for administrative actions (ban, moderation, complaints)."""
 
     def __init__(
         self,
@@ -41,82 +43,113 @@ class AdminService:
         self, current_user: User, role: UserRole | None = None
     ) -> list[UserResponse]:
         """
-        Вывод всех юзеров.
-        Доступно: MODERATOR, NOTARY.
+        Get all users.
+        Available to: MODERATOR, NOTARY.
         """
         if current_user.role not in [UserRole.MODERATOR, UserRole.NOTARY]:
-            raise PermissionDeniedError(PERMISSION_DENIED)
+            raise PermissionDeniedError()
 
         return await self.repo.list_users(role=role)
 
-    async def create_user_by_moderator(
-        self, moderator: User, data: EmployeeCreate
+    async def _create_specific_role(
+        self, moderator: User, data: UserCreateBase, role: UserRole
     ) -> UserResponse:
         """
-        Создать пользователя (User, Notary, Moderator).
+        Internal method to create a user with a specific role.
         """
         if moderator.role != UserRole.MODERATOR:
-            raise PermissionDeniedError(ONLY_MODERATORS)
+            raise PermissionDeniedError()
 
         hashed_password = PasswordHandler.get_password_hash(data.password)
-        new_user = await self.repo.create_user(data, hashed_password, role=data.role)
+        new_user = await self.repo.create_user(data, hashed_password, role=role)
         await self.session.commit()
 
-        logger.info("User %s created by moderator %s", new_user.id, moderator.id)
+        logger.info(
+            "User %s (Role: %s) created by moderator %s",
+            new_user.id,
+            role.value,
+            moderator.id,
+        )
         return new_user
 
     async def update_user_by_moderator(
         self, moderator: User, user_id: int, data: UserUpdateByAdmin
     ) -> UserResponse:
-        """Редактирование пользователя."""
+        """Edit user."""
         if moderator.role != UserRole.MODERATOR:
-            raise PermissionDeniedError(ONLY_MODERATORS)
+            raise PermissionDeniedError()
 
         target_user = await self.repo.get_by_id(user_id)
         if not target_user:
-            raise ResourceNotFoundError(f"User {user_id} not found")
+            raise ResourceNotFoundError()
 
         update_data = data.model_dump(exclude_unset=True)
         updated_user = await self.repo.update_user(target_user, update_data)
         await self.session.commit()
         return updated_user
 
+    async def create_developer(
+        self, moderator: User, data: DeveloperCreate
+    ) -> UserResponse:
+        """Create Developer."""
+        return await self._create_specific_role(moderator, data, UserRole.DEVELOPER)
+
+    async def create_notary(self, moderator: User, data: NotaryCreate) -> UserResponse:
+        """Create Notary."""
+        return await self._create_specific_role(moderator, data, UserRole.NOTARY)
+
+    async def create_agent(self, moderator: User, data: AgentCreate) -> UserResponse:
+        """Create Agent."""
+        return await self._create_specific_role(moderator, data, UserRole.AGENT)
+
+    async def create_moderator(
+        self, moderator: User, data: ModeratorCreate
+    ) -> UserResponse:
+        """Create new Moderator."""
+        return await self._create_specific_role(moderator, data, UserRole.MODERATOR)
+
+    async def create_simple_user(
+        self, moderator: User, data: SimpleUserCreate
+    ) -> UserResponse:
+        """Manually create a simple User (without email verification, etc.)."""
+        return await self._create_specific_role(moderator, data, UserRole.USER)
+
     async def delete_user_by_moderator(self, moderator: User, user_id: int):
-        """Удаление пользователя."""
+        """Delete user."""
         if moderator.role != UserRole.MODERATOR:
-            raise PermissionDeniedError(ONLY_MODERATORS)
+            raise PermissionDeniedError()
 
         if moderator.id == user_id:
-            raise PermissionDeniedError("You cannot delete yourself")
+            raise PermissionDeniedError()
 
         target_user = await self.repo.get_by_id(user_id)
         if not target_user:
-            raise ResourceNotFoundError(f"User {user_id} not found")
+            raise ResourceNotFoundError()
 
         await self.repo.delete_user(target_user)
         await self.session.commit()
         return {"status": "deleted", "user_id": user_id}
 
     async def ban_user(self, moderator: User, user_id: int):
-        """Блокировка пользователя."""
+        """Ban user."""
         if moderator.role != UserRole.MODERATOR:
-            raise PermissionDeniedError("Only moderators can ban users")
+            raise PermissionDeniedError()
 
         if moderator.id == user_id:
-            raise PermissionDeniedError("You cannot ban yourself")
+            raise PermissionDeniedError()
 
         target_user = await self.repo.get_by_id(user_id)
         if not target_user:
-            raise ResourceNotFoundError(f"User {user_id} not found")
+            raise ResourceNotFoundError()
 
         await self.repo.add_to_blacklist(moderator.id, user_id)
         await self.session.commit()
         return {"status": "banned", "user_id": user_id}
 
     async def unban_user(self, moderator: User, user_id: int):
-        """Разблокировка пользователя."""
+        """Unban user."""
         if moderator.role != UserRole.MODERATOR:
-            raise PermissionDeniedError("Only moderators can unban users")
+            raise PermissionDeniedError()
 
         await self.repo.remove_from_blacklist(user_id)
         await self.session.commit()
@@ -125,29 +158,29 @@ class AdminService:
     async def report_user(
         self, reporter: User, data: ComplaintCreate
     ) -> ComplaintResponse:
-        """Пожаловаться на пользователя (доступно всем)."""
+        """Report a user (available to everyone)."""
         if reporter.id == data.reported_user_id:
-            raise PermissionDeniedError("You cannot report yourself")
+            raise PermissionDeniedError()
 
         target = await self.repo.get_by_id(data.reported_user_id)
         if not target:
-            raise ResourceNotFoundError("Reported user not found")
+            raise ResourceNotFoundError()
 
         complaint = await self.repo.create_complaint(reporter.id, data)
         await self.session.commit()
         return complaint
 
     async def get_complaints(self, moderator: User) -> list[ComplaintResponse]:
-        """Просмотр жалоб (только Модератор)."""
+        """View complaints (Moderator only)."""
         if moderator.role != UserRole.MODERATOR:
-            raise PermissionDeniedError("Only moderators can view complaints")
+            raise PermissionDeniedError()
 
         return await self.repo.list_complaints(resolved=False)
 
     async def resolve_complaint(self, moderator: User, complaint_id: int):
-        """Закрыть жалобу (только Модератор)."""
+        """Close complaint (Moderator only)."""
         if moderator.role != UserRole.MODERATOR:
-            raise PermissionDeniedError(PERMISSION_DENIED)
+            raise PermissionDeniedError()
 
         await self.repo.resolve_complaint(complaint_id)
         await self.session.commit()
@@ -156,24 +189,22 @@ class AdminService:
     async def get_pending_announcements(
         self, moderator: User
     ) -> list[AnnouncementResponse]:
-        """Получить объявления, ожидающие модерации."""
+        """Get announcements pending moderation."""
         if moderator.role not in [UserRole.MODERATOR]:
-            raise PermissionDeniedError(
-                "Only moderators can view pending announcements"
-            )
+            raise PermissionDeniedError()
 
         return await self.announcement_repo.get_announcements(status=DealStatus.PENDING)
 
     async def approve_announcement(self, moderator: User, announcement_id: int):
-        """Одобрить объявление."""
+        """Approve announcement."""
         if moderator.role not in [UserRole.MODERATOR]:
-            raise PermissionDeniedError(PERMISSION_DENIED)
+            raise PermissionDeniedError()
 
         announcement = await self.announcement_repo.get_announcement_by_criteria(
             announcement_id=announcement_id
         )
         if not announcement:
-            raise ResourceNotFoundError("Announcement not found")
+            raise ResourceNotFoundError()
 
         await self.announcement_repo.change_status(announcement, DealStatus.ACTIVE)
         await self.session.commit()
@@ -182,15 +213,15 @@ class AdminService:
     async def reject_announcement(
         self, moderator: User, announcement_id: int, data: AnnouncementReject
     ):
-        """Отклонить объявление."""
+        """Reject announcement."""
         if moderator.role not in [UserRole.MODERATOR]:
-            raise PermissionDeniedError(PERMISSION_DENIED)
+            raise PermissionDeniedError()
 
         announcement = await self.announcement_repo.get_announcement_by_criteria(
             announcement_id=announcement_id
         )
         if not announcement:
-            raise ResourceNotFoundError("Announcement not found")
+            raise ResourceNotFoundError()
 
         await self.announcement_repo.change_status(
             announcement, DealStatus.REJECTED, rejection_reason=data.reason

@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 class ChessboardRepository:
     """
-    Репозиторий для работы с заявками на добавление в шахматку.
+    Repository for working with chessboard linking requests.
     """
 
     def __init__(self, session: AsyncSession):
@@ -30,7 +30,7 @@ class ChessboardRepository:
     async def create_request(
         self, announcement_id: int, data: ChessboardRequestCreate
     ) -> ChessboardRequest:
-        """Создает новую заявку."""
+        """Creates a new request."""
         request = ChessboardRequest(
             announcement_id=announcement_id,
             target_house_id=data.target_house_id,
@@ -44,7 +44,7 @@ class ChessboardRepository:
         return request
 
     async def get_request_by_id(self, request_id: int) -> ChessboardRequest | None:
-        """Получает заявку по ID."""
+        """Retrieves a request by ID."""
         stmt = (
             select(ChessboardRequest)
             .options(
@@ -60,7 +60,7 @@ class ChessboardRepository:
         self, developer_id: int
     ) -> Sequence[ChessboardRequest]:
         """
-        Возвращает все заявки для домов, которыми владеет этот застройщик.
+        Returns all requests for houses owned by this developer.
         """
         stmt = (
             select(ChessboardRequest)
@@ -73,7 +73,7 @@ class ChessboardRepository:
         return result.scalars().all()
 
     async def get_my_requests(self, user_id: int) -> Sequence[ChessboardRequest]:
-        """Возвращает заявки, созданные пользователем (через его объявления)."""
+        """Returns requests created by the user (via their announcements)."""
         stmt = (
             select(ChessboardRequest)
             .join(Announcement, ChessboardRequest.announcement_id == Announcement.id)
@@ -88,7 +88,7 @@ class ChessboardRepository:
         status: RequestStatus,
         comment: str | None = None,
     ):
-        """Обновляет статус заявки."""
+        """Updates the status of a request."""
         request.status = status
         if comment:
             request.developer_comment = comment
@@ -98,9 +98,7 @@ class ChessboardRepository:
     async def find_apartment(
         self, _house_id: int, _section_id: int, floor_id: int, number: int
     ) -> Apartment | None:
-        """Ищет существующую квартиру (ячейку) в базе."""
-        # section_id и house_id проверяются через связи, если нужно строже,
-        # но floor_id уникален в рамках БД, так что достаточно его и номера.
+        """Searches for an existing apartment (cell) in the database."""
         stmt = (
             select(Apartment)
             .join(Apartment.floor)
@@ -115,7 +113,7 @@ class ChessboardRepository:
         return result.scalar_one_or_none()
 
     async def create_apartment(self, floor_id: int, number: int) -> Apartment:
-        """Создает новую квартиру (ячейку) в шахматке."""
+        """Creates a new apartment (cell) in the chessboard."""
         apt = Apartment(floor_id=floor_id, number=number)
         self.session.add(apt)
         await self.session.flush()

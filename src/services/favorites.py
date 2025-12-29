@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class FavoriteService:
     """
-    Сервис для работы с избранными.
+    Service for working with favorites.
     """
 
     def __init__(self, repo: FavoriteRepository, session: AsyncSession):
@@ -21,7 +21,7 @@ class FavoriteService:
         self.session = session
 
     async def add_to_favorites(self, user_id: int, announcement_id: int):
-        """Добавить в избранное."""
+        """Add to favorites."""
         logger.info(
             "User %s adding announcement %s to favorites", user_id, announcement_id
         )
@@ -45,8 +45,6 @@ class FavoriteService:
             raise
 
         except Exception as e:
-            # Пытаемся распознать ошибку отсутствующего объявления (Foreign Key Violation)
-            # Текст ошибки зависит от драйвера БД (asyncpg), поэтому проверяем вхождение строк
             err_msg = str(e)
             if (
                 "ForeignKeyViolation" in err_msg
@@ -55,9 +53,7 @@ class FavoriteService:
                 logger.warning(
                     "Failed to add favorite: Announcement %s not found", announcement_id
                 )
-                raise ResourceNotFoundError(
-                    f"Announcement {announcement_id} not found"
-                ) from e
+                raise ResourceNotFoundError() from e
 
             logger.error("Unexpected error adding favorite: %s", e, exc_info=True)
             raise
@@ -66,7 +62,7 @@ class FavoriteService:
 
     async def remove_from_favorites(self, user_id: int, announcement_id: int):
         """
-        Удаления из избранного.
+        Remove from favorites.
         """
         logger.info(
             "User %s removing announcement %s from favorites", user_id, announcement_id
@@ -79,7 +75,7 @@ class FavoriteService:
 
     async def get_my_favorites(self, user_id: int) -> list[AnnouncementResponse]:
         """
-        Получения избранного.
+        Get favorites.
         """
         logger.debug("Fetching favorites for user %s", user_id)
         return await self.repo.get_favorites(user_id)

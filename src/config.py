@@ -7,8 +7,8 @@ from pydantic import computed_field
 
 class Settings(BaseSettings):
     """
-    Конфигурация приложения.
-    Считывает переменные окружения из файла .env.
+    Application configuration.
+    Reads environment variables from .env file.
     """
 
     model_config = SettingsConfigDict(
@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     @property
     def DATABASE_URL(self) -> str:  # pylint: disable=invalid-name
         """
-        Собирает строку подключения DSN для SQLAlchemy.
+        Builds the DSN connection string for SQLAlchemy.
         """
         return (
             f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASS}"
@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     @computed_field
     @property
     def REDIS_URL(self) -> str:  # pylint: disable=invalid-name
-        """Собирает строку подключения Redis."""
+        """Builds the Redis connection string."""
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0"
 
 

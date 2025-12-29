@@ -5,6 +5,11 @@ from fastapi import APIRouter, Depends
 from dishka.integrations.fastapi import FromDishka, inject
 
 from src.common.docs import create_error_responses
+from src.common.exceptions import (
+    PermissionDeniedError,
+    ResourceNotFoundError,
+    AuthenticationFailedError,
+)
 from src.models import User
 from src.routes.deps import get_current_user
 from src.schemas.real_estate import AnnouncementResponse, AnnouncementReject
@@ -16,20 +21,25 @@ router = APIRouter(tags=["Announcement Moderation"])
 @router.get(
     "/announcements/pending",
     response_model=List[AnnouncementResponse],
-    responses=create_error_responses(401, 403),
+    responses=create_error_responses(AuthenticationFailedError, PermissionDeniedError),
 )
 @inject
 async def get_pending_announcements(
     service: FromDishka[AdminService],
     current_user: User = Depends(get_current_user),
 ):
-    """Получить список объявлений на модерации (Только Модератор)."""
+    """
+    Get list of announcements pending moderation.
+    (Moderator only).
+    """
     return await service.get_pending_announcements(current_user)
 
 
 @router.post(
     "/announcements/{announcement_id}/approve",
-    responses=create_error_responses(401, 403, 404),
+    responses=create_error_responses(
+        AuthenticationFailedError, PermissionDeniedError, ResourceNotFoundError
+    ),
 )
 @inject
 async def approve_announcement(
@@ -37,13 +47,17 @@ async def approve_announcement(
     service: FromDishka[AdminService],
     current_user: User = Depends(get_current_user),
 ):
-    """Одобрить объявление (сделать активным)."""
+    """
+    Approve announcement (set status to ACTIVE).
+    """
     return await service.approve_announcement(current_user, announcement_id)
 
 
 @router.post(
     "/announcements/{announcement_id}/reject",
-    responses=create_error_responses(401, 403, 404, 422),
+    responses=create_error_responses(
+        AuthenticationFailedError, PermissionDeniedError, ResourceNotFoundError
+    ),
 )
 @inject
 async def reject_announcement(
@@ -52,5 +66,7 @@ async def reject_announcement(
     service: FromDishka[AdminService],
     current_user: User = Depends(get_current_user),
 ):
-    """Отклонить объявление (указать причину)."""
+    """
+    Reject announcement (with reason).
+    """
     return await service.reject_announcement(current_user, announcement_id, data)

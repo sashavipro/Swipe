@@ -9,8 +9,8 @@ from src.infrastructure.providers.services import ServiceProvider
 
 def make_container():
     """
-    Фабрика контейнера.
-    Собирает все провайдеры (Инфраструктура, Репозитории, Сервисы).
+    Container factory.
+    Assembles all providers (Infrastructure, Repositories, Services).
     """
     container = make_async_container(
         InfraProvider(),

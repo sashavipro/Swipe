@@ -2,20 +2,20 @@
 
 import logging
 from typing import Sequence
-from sqlalchemy import select
+from sqlalchemy import select, or_, Select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.common.exceptions import ResourceAlreadyExistsError
 from src.models.real_estate import Announcement, Image, Promotion, DealStatus
-from src.schemas.real_estate import AnnouncementCreate
+from src.schemas.real_estate import AnnouncementCreate, AnnouncementFilter
 
 logger = logging.getLogger(__name__)
 
 
 class AnnouncementRepository:
     """
-    Репозиторий для работы с объявлениями.
+    Repository for working with announcements.
     """
 
     def __init__(self, session: AsyncSession):
@@ -25,8 +25,7 @@ class AnnouncementRepository:
         self, user_id: int, data: AnnouncementCreate, image_urls: list[str]
     ) -> Announcement:
         """
-        Создает объявление.
-        Если apartment_id передан, проверяет, нет ли уже активных объявлений для этой квартиры.
+        Creates an announcement.
         """
         logger.info("Creating announcement for user_id=%s", user_id)
 
@@ -103,7 +102,7 @@ class AnnouncementRepository:
         offset: int = 0,
     ) -> Sequence[Announcement]:
         """
-        Получает список объявлений с пагинацией.
+        Retrieves a list of announcements with pagination.
         """
         logger.debug("Fetching announcements: limit=%s, offset=%s", limit, offset)
 
@@ -132,7 +131,7 @@ class AnnouncementRepository:
     async def get_announcement_by_criteria(
         self, announcement_id: int | None = None, apartment_id: int | None = None
     ) -> Announcement | None:
-        """Ищет объявление по ID или по ID квартиры."""
+        """Searches for an announcement by ID or by apartment ID."""
         logger.debug(
             "Searching announcement: id=%s, apartment_id=%s",
             announcement_id,
@@ -162,7 +161,7 @@ class AnnouncementRepository:
         new_status: DealStatus,
         rejection_reason: str | None = None,
     ) -> Announcement:
-        """Меняет статус объявления."""
+        """Changes the status of an announcement."""
         announcement.status = new_status
         if rejection_reason:
             announcement.rejection_reason = rejection_reason
@@ -174,7 +173,7 @@ class AnnouncementRepository:
     async def update_announcement(
         self, announcement: Announcement, data: dict
     ) -> Announcement:
-        """Обновляет поля объявления."""
+        """Updates announcement fields."""
         logger.info("Updating announcement_id=%s", announcement.id)
 
         for key, value in data.items():
@@ -191,8 +190,109 @@ class AnnouncementRepository:
         return announcement
 
     async def delete_announcement(self, announcement: Announcement) -> None:
-        """Удаляет объявление."""
+        """Deletes an announcement."""
         logger.info("Deleting announcement_id=%s", announcement.id)
 
         await self.session.delete(announcement)
         await self.session.flush()
+
+    def _apply_market_filters(
+        self, query: Select, filter_params: AnnouncementFilter
+    ) -> Select:
+        """Applies market type filters (Secondary/New)."""
+        market_conditions = []
+        if filter_params.type_new_buildings:
+            market_conditions.append(Announcement.apartment_id.isnot(None))
+        if filter_params.type_secondary:
+            market_conditions.append(Announcement.apartment_id.is_(None))
+
+        if market_conditions:
+            query = query.where(or_(*market_conditions))
+        return query
+
+    def _apply_price_area_filters(
+        self, query: Select, filter_params: AnnouncementFilter
+    ) -> Select:
+        """Applies price and area range filters."""
+        if filter_params.price_from:
+            query = query.where(Announcement.price >= filter_params.price_from)
+        if filter_params.price_to:
+            query = query.where(Announcement.price <= filter_params.price_to)
+
+        if filter_params.area_from:
+            query = query.where(Announcement.area >= filter_params.area_from)
+        if filter_params.area_to:
+            query = query.where(Announcement.area <= filter_params.area_to)
+        return query
+
+    def _apply_other_filters(
+        self, query: Select, filter_params: AnnouncementFilter
+    ) -> Select:
+        """Applies remaining filters."""
+        if filter_params.number_of_rooms:
+            query = query.where(
+                Announcement.number_of_rooms == filter_params.number_of_rooms
+            )
+
+        if filter_params.district:
+            query = query.where(
+                Announcement.address.ilike(f"%{filter_params.district}%")
+            )
+        if filter_params.microdistrict:
+            query = query.where(
+                Announcement.address.ilike(f"%{filter_params.microdistrict}%")
+            )
+
+        if filter_params.purpose:
+            query = query.where(Announcement.purpose == filter_params.purpose)
+        if filter_params.condition:
+            query = query.where(
+                Announcement.residential_condition == filter_params.condition
+            )
+        if filter_params.house_type:
+            query = query.where(Announcement.house_type == filter_params.house_type)
+        if filter_params.house_class:
+            query = query.where(Announcement.house_class == filter_params.house_class)
+        if filter_params.has_balcony is not None:
+            query = query.where(Announcement.has_balcony == filter_params.has_balcony)
+        return query
+
+    async def search_announcements(
+        self,
+        filter_params: AnnouncementFilter,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> Sequence[Announcement]:
+        """
+        Searching announcements by filter.
+        """
+        logger.debug("Searching announcements with filter: %s", filter_params)
+
+        query = (
+            select(Announcement)
+            .where(Announcement.status == DealStatus.ACTIVE)
+            .options(
+                selectinload(Announcement.images), selectinload(Announcement.promotion)
+            )
+            .outerjoin(Promotion)
+            .order_by(
+                Promotion.is_turbo.desc().nullslast(), Announcement.created_at.desc()
+            )
+        )
+
+        if filter_params.status_house:
+            query = query.where(Announcement.status == filter_params.status_house)
+        else:
+            query = query.where(Announcement.status == DealStatus.ACTIVE)
+
+        query = self._apply_market_filters(query, filter_params)
+        query = self._apply_price_area_filters(query, filter_params)
+        query = self._apply_other_filters(query, filter_params)
+
+        query = query.limit(limit).offset(offset)
+
+        result = await self.session.execute(query)
+        items = result.scalars().all()
+
+        logger.debug("Found %d announcements", len(items))
+        return items

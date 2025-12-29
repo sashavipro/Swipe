@@ -6,6 +6,12 @@ from fastapi import APIRouter, Depends, UploadFile, File, status
 from dishka.integrations.fastapi import FromDishka, inject
 
 from src.common.docs import create_error_responses
+from src.common.exceptions import (
+    ResourceAlreadyExistsError,
+    AuthenticationFailedError,
+    ResourceNotFoundError,
+    BadRequestError,
+)
 from src.models.users import User
 from src.schemas.users import (
     UserResponse,
@@ -21,17 +27,23 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["User Profile"])
 
 
-@router.get("/me", response_model=UserResponse, responses=create_error_responses(401))
+@router.get(
+    "/me",
+    response_model=UserResponse,
+    responses=create_error_responses(AuthenticationFailedError),
+)
 @inject
 async def get_my_profile(current_user: User = Depends(get_current_user)):
-    """Получить профиль текущего пользователя."""
+    """Get current user profile."""
     return current_user
 
 
 @router.patch(
     "/me",
     response_model=UserResponse,
-    responses=create_error_responses(401, 404, 409, 422),
+    responses=create_error_responses(
+        AuthenticationFailedError, ResourceAlreadyExistsError, ResourceNotFoundError
+    ),
 )
 @inject
 async def update_profile(
@@ -40,8 +52,7 @@ async def update_profile(
     user: User = Depends(get_current_user),
 ):
     """
-    Обновить данные профиля.
-    - **409**: Если новый email уже занят.
+    Update profile data.
     """
     logger.info("User %s updating profile", user.id)
     return await service.update_my_profile(user.id, data)
@@ -51,7 +62,9 @@ async def update_profile(
     "/me/avatar",
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
-    responses=create_error_responses(401, 404, 422),
+    responses=create_error_responses(
+        AuthenticationFailedError, ResourceNotFoundError, BadRequestError
+    ),
 )
 @inject
 async def upload_avatar(
@@ -59,7 +72,7 @@ async def upload_avatar(
     file: UploadFile = File(...),
     user: User = Depends(get_current_user),
 ):
-    """Загрузить новую аватарку."""
+    """Upload new avatar."""
     logger.info("User %s uploading avatar", user.id)
     return await service.update_avatar(user.id, file)
 
@@ -67,14 +80,14 @@ async def upload_avatar(
 @router.patch(
     "/me/subscription",
     response_model=SubscriptionResponse,
-    responses=create_error_responses(401, 404),
+    responses=create_error_responses(AuthenticationFailedError, ResourceNotFoundError),
 )
 @inject
 async def toggle_subscription_renewal(
     service: FromDishka[SubscriptionService],
     user: User = Depends(get_current_user),
 ):
-    """Переключить автопродление подписки."""
+    """Toggle auto-renewal of subscription."""
     logger.info("User %s toggling subscription renewal", user.id)
     return await service.toggle_auto_renewal(user.id)
 
@@ -83,7 +96,7 @@ async def toggle_subscription_renewal(
     "/me/subscription/extend",
     response_model=SubscriptionResponse,
     status_code=status.HTTP_201_CREATED,
-    responses=create_error_responses(401, 404, 422),
+    responses=create_error_responses(AuthenticationFailedError, ResourceNotFoundError),
 )
 @inject
 async def extend_subscription(
@@ -91,7 +104,7 @@ async def extend_subscription(
     days: int = 30,
     user: User = Depends(get_current_user),
 ):
-    """Продлить подписку."""
+    """Extend subscription."""
     logger.info("User %s extending subscription for %d days", user.id, days)
     return await service.extend_subscription(user.id, days)
 
@@ -100,7 +113,7 @@ async def extend_subscription(
     "/employees",
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
-    responses=create_error_responses(409, 422),
+    responses=create_error_responses(ResourceAlreadyExistsError),
 )
 @inject
 async def create_employee(
@@ -108,8 +121,7 @@ async def create_employee(
     data: EmployeeCreate,
 ):
     """
-    Создание сотрудника(агента).
-    - **409**: Если email уже занят.
+    Create an employee (agent).
     """
     logger.info("Creating new employee: %s", data.email)
     return await service.create_employee(data)

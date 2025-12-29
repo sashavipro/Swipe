@@ -5,13 +5,13 @@ from pydantic import BaseModel, Field
 
 class ErrorResponse(BaseModel):
     """
-    Стандартная схема ответа при ошибке.
+    Standard error response schema.
     """
 
-    status: str = Field(example="error", description="Статус ответа")
+    status: str = Field(example="error", description="Response status")
     code: str = Field(
-        example="RESOURCE_NOT_FOUND", description="Код ошибки для фронтенда"
+        example="RESOURCE_NOT_FOUND", description="Error code for frontend"
     )
     message: str = Field(
-        example="User with id 123 not found", description="Человекочитаемое сообщение"
+        example="User with id 123 not found", description="Human-readable message"
     )

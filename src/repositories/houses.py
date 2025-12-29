@@ -24,14 +24,14 @@ logger = logging.getLogger(__name__)
 
 class HouseRepository:
     """
-    Репозиторий для работы с домами.
+    Repository for working with houses.
     """
 
     def __init__(self, session: AsyncSession):
         self.session = session
 
     async def get_house_by_id(self, house_id: int) -> House | None:
-        """Получить дом по ID со всей информацией."""
+        """Get house by ID with all information."""
         stmt = (
             select(House)
             .options(
@@ -46,7 +46,7 @@ class HouseRepository:
 
     async def create_house(self, data: HouseCreate, owner_id: int) -> House:
         """
-        Создает полную структуру ЖК.
+        Creates a full house structure.
         """
         logger.info(
             "Attempting to create house structure for: '%s' by owner %s",
@@ -91,7 +91,7 @@ class HouseRepository:
             ) from e
 
     async def update_house_info(self, house: House, update_data: dict) -> House:
-        """Обновляет карточку ЖК."""
+        """Updates house card info."""
         if not house.info:
             house.info = HouseInfo(id=house.id)
 
@@ -104,14 +104,14 @@ class HouseRepository:
         return await self.get_house_by_id(house.id)
 
     async def add_news(self, house_id: int, data: NewsCreate) -> News:
-        """Добавляет новость к ЖК."""
+        """Adds news to the house."""
         news = News(house_id=house_id, **data.model_dump())
         self.session.add(news)
         await self.session.flush()
         return news
 
     async def delete_news(self, news_id: int):
-        """Удаляет новость."""
+        """Deletes news."""
         stmt = select(News).where(News.id == news_id)
         news = (await self.session.execute(stmt)).scalar_one_or_none()
         if news:
@@ -119,19 +119,19 @@ class HouseRepository:
             await self.session.flush()
 
     async def get_news_by_id(self, news_id: int) -> News | None:
-        """Получает новость по ID (для проверки прав)."""
+        """Gets news by ID (to check permissions)."""
         stmt = select(News).options(selectinload(News.house)).where(News.id == news_id)
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
     async def add_document(self, house_id: int, data: DocumentCreate) -> Document:
-        """Добавляет документ к ЖК."""
+        """Adds a document to the house."""
         doc = Document(house_id=house_id, **data.model_dump())
         self.session.add(doc)
         await self.session.flush()
         return doc
 
     async def delete_document(self, doc_id: int):
-        """Удаляет документ."""
+        """Deletes a document."""
         stmt = select(Document).where(Document.id == doc_id)
         doc = (await self.session.execute(stmt)).scalar_one_or_none()
         if doc:
@@ -139,7 +139,7 @@ class HouseRepository:
             await self.session.flush()
 
     async def get_document_by_id(self, doc_id: int) -> Document | None:
-        """Получает документ по ID (для проверки прав)."""
+        """Gets a document by ID (to check permissions)."""
         stmt = (
             select(Document)
             .options(selectinload(Document.house))
@@ -148,7 +148,7 @@ class HouseRepository:
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
     async def get_all_houses(self) -> Sequence[House]:
-        """Возвращает список домов со всей вложенной структурой и информацией."""
+        """Returns a list of houses with all nested structure and information."""
         logger.debug("Fetching all houses with sections/floors/apartments and info")
 
         query = (

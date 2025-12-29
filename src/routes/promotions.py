@@ -6,6 +6,12 @@ from fastapi import APIRouter, Depends, status
 from dishka.integrations.fastapi import FromDishka, inject
 
 from src.common.docs import create_error_responses
+from src.common.exceptions import (
+    ResourceNotFoundError,
+    PermissionDeniedError,
+    ResourceAlreadyExistsError,
+    AuthenticationFailedError,
+)
 from src.models import User
 from src.routes.deps import get_current_user
 from src.schemas.real_estate import (
@@ -23,7 +29,12 @@ router = APIRouter(tags=["Promotion"])
     "/announcements/{announcement_id}/promotion",
     response_model=PromotionResponse,
     status_code=status.HTTP_201_CREATED,
-    responses=create_error_responses(401, 403, 404, 409, 422),
+    responses=create_error_responses(
+        AuthenticationFailedError,
+        PermissionDeniedError,
+        ResourceNotFoundError,
+        ResourceAlreadyExistsError,
+    ),
 )
 @inject
 async def create_promotion(
@@ -33,9 +44,7 @@ async def create_promotion(
     user: User = Depends(get_current_user),
 ):
     """
-    Добавить продвижение.
-    - **403**: Если вы не владелец объявления.
-    - **409**: Если продвижение уже активно.
+    Add promotion.
     """
     logger.info("User %s promoting announcement %s", user.id, announcement_id)
     return await service.create_promotion(user, announcement_id, data)
@@ -44,7 +53,9 @@ async def create_promotion(
 @router.patch(
     "/promotions/{promotion_id}",
     response_model=PromotionResponse,
-    responses=create_error_responses(401, 403, 404, 422),
+    responses=create_error_responses(
+        AuthenticationFailedError, PermissionDeniedError, ResourceNotFoundError
+    ),
 )
 @inject
 async def update_promotion(
@@ -53,12 +64,15 @@ async def update_promotion(
     data: PromotionUpdate,
     user: User = Depends(get_current_user),
 ):
-    """Обновить настройки продвижения."""
+    """Update promotion settings."""
     return await service.update_promotion(user, promotion_id, data)
 
 
 @router.delete(
-    "/promotions/{promotion_id}", responses=create_error_responses(401, 403, 404, 422)
+    "/promotions/{promotion_id}",
+    responses=create_error_responses(
+        AuthenticationFailedError, PermissionDeniedError, ResourceNotFoundError
+    ),
 )
 @inject
 async def delete_promotion(
@@ -66,5 +80,5 @@ async def delete_promotion(
     promotion_id: int,
     user: User = Depends(get_current_user),
 ):
-    """Удалить продвижение."""
+    """Delete promotion."""
     return await service.delete_promotion(user, promotion_id)

@@ -6,6 +6,13 @@ from fastapi import APIRouter, status, Depends, UploadFile, File, Form
 from dishka.integrations.fastapi import FromDishka, inject
 
 from src.common.docs import create_error_responses
+from src.common.exceptions import (
+    ResourceNotFoundError,
+    PermissionDeniedError,
+    ResourceAlreadyExistsError,
+    AuthenticationFailedError,
+    BadRequestError,
+)
 from src.models.users import User
 from src.routes.deps import get_current_user
 from src.schemas.real_estate import (
@@ -26,7 +33,9 @@ router = APIRouter(tags=["House"])
     "/houses",
     response_model=HouseResponse,
     status_code=status.HTTP_201_CREATED,
-    responses=create_error_responses(409, 422, 403),
+    responses=create_error_responses(
+        AuthenticationFailedError, PermissionDeniedError, ResourceAlreadyExistsError
+    ),
 )
 @inject
 async def create_house(
@@ -35,7 +44,7 @@ async def create_house(
     user: User = Depends(get_current_user),
 ):
     """
-    Создать структуру дома (Только для Developer/Moderator).
+    Create a house structure (Only for Developer/Moderator).
     """
     logger.info("Creating new house structure: %s", data.name)
     return await service.create_house(user, data)
@@ -46,14 +55,16 @@ async def create_house(
 async def get_houses(
     service: FromDishka[HouseService],
 ):
-    """Получить список всех домов."""
+    """Get a list of all houses."""
     return await service.get_houses()
 
 
 @router.patch(
     "/houses/{house_id}/info",
     response_model=HouseResponse,
-    responses=create_error_responses(403, 404, 422),
+    responses=create_error_responses(
+        AuthenticationFailedError, PermissionDeniedError, ResourceNotFoundError
+    ),
 )
 @inject
 async def update_house_info(
@@ -63,8 +74,8 @@ async def update_house_info(
     user: User = Depends(get_current_user),
 ):
     """
-    Редактировать текстовую информацию о ЖК (Карточку).
-    Только владелец (Застройщик).
+    Edit house information (Card).
+    Only owner (Developer).
     """
     logger.info("User %s updating info for house %s", user.id, house_id)
     return await service.update_house_info(user, house_id, data)
@@ -73,7 +84,12 @@ async def update_house_info(
 @router.post(
     "/houses/{house_id}/main-image",
     response_model=HouseResponse,
-    responses=create_error_responses(403, 404, 422),
+    responses=create_error_responses(
+        AuthenticationFailedError,
+        PermissionDeniedError,
+        ResourceNotFoundError,
+        BadRequestError,
+    ),
 )
 @inject
 async def upload_house_main_image(
@@ -83,8 +99,8 @@ async def upload_house_main_image(
     user: User = Depends(get_current_user),
 ):
     """
-    Загрузить главную картинку ЖК.
-    Старая картинка будет удалена.
+    Upload the main image of the house.
+    Old image will be deleted.
     """
     logger.info("User %s uploading main image for house %s", user.id, house_id)
     return await service.upload_main_image(user, house_id, file)
@@ -94,7 +110,9 @@ async def upload_house_main_image(
     "/houses/{house_id}/news",
     response_model=NewsResponse,
     status_code=status.HTTP_201_CREATED,
-    responses=create_error_responses(403, 404, 422),
+    responses=create_error_responses(
+        AuthenticationFailedError, PermissionDeniedError, ResourceNotFoundError
+    ),
 )
 @inject
 async def add_news(
@@ -103,14 +121,16 @@ async def add_news(
     data: NewsCreate,
     user: User = Depends(get_current_user),
 ):
-    """Добавить новость к ЖК."""
+    """Add news to the house."""
     logger.info("User %s adding news to house %s", user.id, house_id)
     return await service.add_news(user, house_id, data)
 
 
 @router.delete(
     "/houses/news/{news_id}",
-    responses=create_error_responses(403, 404),
+    responses=create_error_responses(
+        AuthenticationFailedError, PermissionDeniedError, ResourceNotFoundError
+    ),
 )
 @inject
 async def delete_news(
@@ -118,7 +138,7 @@ async def delete_news(
     news_id: int,
     user: User = Depends(get_current_user),
 ):
-    """Удалить новость."""
+    """Delete news."""
     return await service.delete_news(user, news_id)
 
 
@@ -126,7 +146,12 @@ async def delete_news(
     "/houses/{house_id}/documents",
     response_model=DocumentResponse,
     status_code=status.HTTP_201_CREATED,
-    responses=create_error_responses(403, 404, 422),
+    responses=create_error_responses(
+        AuthenticationFailedError,
+        PermissionDeniedError,
+        ResourceNotFoundError,
+        BadRequestError,
+    ),
 )
 @inject
 async def add_document(
@@ -136,14 +161,16 @@ async def add_document(
     is_excel: bool = Form(False),
     user: User = Depends(get_current_user),
 ):
-    """Добавить документ к ЖК (загрузка файла)."""
+    """Add a document to the house (file upload)."""
     logger.info("User %s uploading document for house %s", user.id, house_id)
     return await service.add_document(user, house_id, file, is_excel)
 
 
 @router.delete(
     "/houses/documents/{doc_id}",
-    responses=create_error_responses(403, 404),
+    responses=create_error_responses(
+        AuthenticationFailedError, PermissionDeniedError, ResourceNotFoundError
+    ),
 )
 @inject
 async def delete_document(
@@ -151,5 +178,5 @@ async def delete_document(
     doc_id: int,
     user: User = Depends(get_current_user),
 ):
-    """Удалить документ."""
+    """Delete a document."""
     return await service.delete_document(user, doc_id)

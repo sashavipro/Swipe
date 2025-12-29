@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 class PromotionService:
     """
-    Сервис для работы с продвижениями.
+    Service for working with promotions.
     """
 
     def __init__(
@@ -36,7 +36,7 @@ class PromotionService:
     async def create_promotion(
         self, user: User, announcement_id: int, data: PromotionCreate
     ) -> PromotionResponse:
-        """Создать продвижение для объявления."""
+        """Creates a promotion for an announcement."""
         logger.info(
             "User %s creating promotion for announcement %s", user.id, announcement_id
         )
@@ -45,9 +45,7 @@ class PromotionService:
             announcement_id=announcement_id
         )
         if not announcement:
-            raise ResourceNotFoundError(
-                f"Announcement with id {announcement_id} not found"
-            )
+            raise ResourceNotFoundError()
 
         check_owner_or_admin(
             user,
@@ -65,12 +63,12 @@ class PromotionService:
         self, user: User, promotion_id: int, data: PromotionUpdate
     ) -> PromotionResponse:
         """
-        Обновляет настройки продвижения.
+        Updates promotion settings.
         """
         promotion = await self.repo.get_promotion_by_id(promotion_id)
         if not promotion:
             logger.warning("Update failed: Promotion %s not found", promotion_id)
-            raise ResourceNotFoundError(f"Promotion with id {promotion_id} not found")
+            raise ResourceNotFoundError()
 
         check_owner_or_admin(
             user,
@@ -87,12 +85,12 @@ class PromotionService:
 
     async def delete_promotion(self, user: User, promotion_id: int):
         """
-        Удаляет продвижение.
+        Deletes a promotion.
         """
         promotion = await self.repo.get_promotion_by_id(promotion_id)
         if not promotion:
             logger.warning("Delete failed: Promotion %s not found", promotion_id)
-            raise ResourceNotFoundError(f"Promotion with id {promotion_id} not found")
+            raise ResourceNotFoundError()
 
         check_owner_or_admin(
             user,

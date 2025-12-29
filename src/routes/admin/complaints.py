@@ -5,6 +5,11 @@ from fastapi import APIRouter, Depends, status
 from dishka.integrations.fastapi import FromDishka, inject
 
 from src.common.docs import create_error_responses
+from src.common.exceptions import (
+    PermissionDeniedError,
+    ResourceNotFoundError,
+    AuthenticationFailedError,
+)
 from src.models import User
 from src.routes.deps import get_current_user
 from src.schemas.users import ComplaintCreate, ComplaintResponse
@@ -17,7 +22,9 @@ router = APIRouter(tags=["Complaints"])
     "/complaints",
     response_model=ComplaintResponse,
     status_code=status.HTTP_201_CREATED,
-    responses=create_error_responses(401, 403, 404, 422),
+    responses=create_error_responses(
+        AuthenticationFailedError, PermissionDeniedError, ResourceNotFoundError
+    ),
 )
 @inject
 async def report_user(
@@ -25,27 +32,33 @@ async def report_user(
     service: FromDishka[AdminService],
     current_user: User = Depends(get_current_user),
 ):
-    """Пожаловаться на пользователя (Любой авторизованный юзер)."""
+    """
+    Report a user.
+    (Any authenticated user).
+    """
     return await service.report_user(current_user, data)
 
 
 @router.get(
     "/complaints",
     response_model=List[ComplaintResponse],
-    responses=create_error_responses(401, 403),
+    responses=create_error_responses(AuthenticationFailedError, PermissionDeniedError),
 )
 @inject
 async def list_complaints(
     service: FromDishka[AdminService],
     current_user: User = Depends(get_current_user),
 ):
-    """Просмотр активных жалоб (Только Модератор)."""
+    """
+    View active complaints.
+    (Moderator only).
+    """
     return await service.get_complaints(current_user)
 
 
 @router.post(
     "/complaints/{complaint_id}/resolve",
-    responses=create_error_responses(401, 403, 404),
+    responses=create_error_responses(AuthenticationFailedError, PermissionDeniedError),
 )
 @inject
 async def resolve_complaint(
@@ -53,5 +66,8 @@ async def resolve_complaint(
     service: FromDishka[AdminService],
     current_user: User = Depends(get_current_user),
 ):
-    """Закрыть (решить) жалобу (Только Модератор)."""
+    """
+    Resolve (close) a complaint.
+    (Moderator only).
+    """
     return await service.resolve_complaint(current_user, complaint_id)
