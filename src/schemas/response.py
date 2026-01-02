@@ -8,10 +8,14 @@ class ErrorResponse(BaseModel):
     Standard error response schema.
     """
 
-    status: str = Field(example="error", description="Response status")
+    status: str = Field(
+        json_schema_extra={"example": "error"}, description="Response status"
+    )
     code: str = Field(
-        example="RESOURCE_NOT_FOUND", description="Error code for frontend"
+        json_schema_extra={"example": "RESOURCE_NOT_FOUND"},
+        description="Error code for frontend",
     )
     message: str = Field(
-        example="User with id 123 not found", description="Human-readable message"
+        json_schema_extra={"example": "User with id 123 not found"},
+        description="Human-readable message",
     )

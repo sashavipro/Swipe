@@ -8,10 +8,8 @@ from dishka.integrations.fastapi import FromDishka, inject
 
 from src.common.exceptions import PermissionDeniedError
 from src.repositories.users import UserRepository
-from src.services.announcements import AnnouncementService
 from src.services.auth import AuthService
 from src.models.users import User
-from src.services.saved_searches import SavedSearchService
 
 logger = logging.getLogger(__name__)
 security = HTTPBearer()
@@ -37,22 +35,3 @@ async def get_current_user(
         raise PermissionDeniedError()
 
     return user
-
-
-class SearchDependencies:
-    """
-    Dependency wrapper for search services.
-    Used to group arguments and avoid 'too-many-arguments' linter error.
-    """
-
-    # pylint: disable=too-few-public-methods
-
-    def __init__(
-        self,
-        saved_search_service: FromDishka[SavedSearchService],
-        announcement_service: FromDishka[AnnouncementService],
-        user: User = Depends(get_current_user),
-    ):
-        self.saved_search_service = saved_search_service
-        self.announcement_service = announcement_service
-        self.user = user

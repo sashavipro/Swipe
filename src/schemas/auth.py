@@ -1,6 +1,6 @@
 """src/schemas/auth.py."""
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
 from src.schemas.users import UserCreateBase
 
@@ -65,11 +65,7 @@ class UserResponse(BaseModel):
     first_name: str
     last_name: str
 
-    class Config:
-        """Pydantic configuration."""
-
-        # pylint: disable=too-few-public-methods
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ForgotPasswordRequest(BaseModel):

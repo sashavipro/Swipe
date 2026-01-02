@@ -44,6 +44,32 @@ class SectionCreate(BaseModel):
     floors: List[FloorCreate]
 
 
+class ApartmentResponse(BaseModel):
+    """Schema for apartment response data."""
+
+    id: int
+    number: int
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FloorResponse(BaseModel):
+    """Schema for floor response data."""
+
+    id: int
+    number: int
+    apartments: List[ApartmentResponse] = []
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SectionResponse(BaseModel):
+    """Schema for section response data."""
+
+    id: int
+    name: str
+    floors: List[FloorResponse] = []
+    model_config = ConfigDict(from_attributes=True)
+
+
 class HouseInfoBase(BaseModel):
     """Base schema for Housing Complex information (card)."""
 
@@ -131,6 +157,7 @@ class HouseResponse(BaseModel):
     info: Optional[HouseInfoResponse] = None
     news: List[NewsResponse] = []
     documents: List[DocumentResponse] = []
+    sections: List[SectionResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
 

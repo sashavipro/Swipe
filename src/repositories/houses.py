@@ -38,6 +38,9 @@ class HouseRepository:
                 selectinload(House.info),
                 selectinload(House.news),
                 selectinload(House.documents),
+                selectinload(House.sections)
+                .selectinload(Section.floors)
+                .selectinload(Floor.apartments),
             )
             .where(House.id == house_id)
         )

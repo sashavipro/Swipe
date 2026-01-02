@@ -13,10 +13,11 @@ from src.common.exceptions import (
 )
 from src.models.real_estate import DealStatus, RoomCount
 from src.models.users import User
-from src.routes.deps import get_current_user, SearchDependencies
+from src.routes.deps import get_current_user
 from src.schemas.real_estate import AnnouncementResponse, AnnouncementFilter
 from src.schemas.saved_searches import SavedSearchCreate, SavedSearchResponse
 from src.services.saved_searches import SavedSearchService
+from src.services.announcements import AnnouncementService
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Saved Searches"])
@@ -84,16 +85,16 @@ async def delete_saved_search(
 @inject
 async def run_saved_search(
     search_id: int,
-    deps: SearchDependencies = Depends(),
+    saved_search_service: FromDishka[SavedSearchService],
+    announcement_service: FromDishka[AnnouncementService],
+    user: User = Depends(get_current_user),
     limit: Annotated[int, Query(ge=1, le=100, description="Number of records")] = 20,
     offset: Annotated[int, Query(ge=0, description="Offset")] = 0,
 ):
     """
     Run search using a saved filter.
     """
-    saved_search = await deps.saved_search_service.get_saved_search_by_id(
-        deps.user, search_id
-    )
+    saved_search = await saved_search_service.get_saved_search_by_id(user, search_id)
 
     search_data: dict[str, Any] = {}
 
@@ -119,6 +120,4 @@ async def run_saved_search(
     if not filter_params.status_house:
         filter_params.status_house = DealStatus.ACTIVE
 
-    return await deps.announcement_service.search_announcements(
-        filter_params, limit, offset
-    )
+    return await announcement_service.search_announcements(filter_params, limit, offset)
