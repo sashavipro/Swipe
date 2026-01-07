@@ -1,40 +1,66 @@
+"""
+Alembic environment configuration.
+"""
+
 import asyncio
 from logging.config import fileConfig
 import sys
+import importlib
+import pkgutil
 from pathlib import Path
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
-from src.config import settings
-from src.models import Base
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+# Pylint cannot detect members of alembic.context correctly
+# pylint: disable=no-member
+
+BASE_DIR = Path(__file__).resolve().parents[1]
+sys.path.append(str(BASE_DIR))
+
+# Imports are placed here to ensure sys.path is set up correctly
+# pylint: disable=wrong-import-position
+from src.core.config import settings  # noqa: E402
+from src.core.models.base import Base  # noqa: E402
+from src import apps  # noqa: E402
 
 config = context.config
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
+
+def load_all_models():
+    """
+    Scans the src/apps folder and imports all models.py files.
+    This registers tables in Base.metadata.
+    """
+    package = apps
+    if hasattr(package, "__path__"):
+        for _, name, _ in pkgutil.walk_packages(
+            package.__path__, package.__name__ + "."
+        ):
+            if name.endswith(".models"):
+                try:
+                    importlib.import_module(name)
+                    # print(f"DEBUG: Loaded models from {name}")
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    print(f"ERROR: Could not load {name}: {e}")
+
+
+load_all_models()
+
 target_metadata = Base.metadata
+
+# (Optional) Debug: shows which tables Alembic saw
+# print("DEBUG TABLES FOUND:", target_metadata.tables.keys())
 
 
 def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode.
-
-    This configures the context with just a URL
-    and not an Engine, though an Engine is acceptable
-    here as well.  By skipping the Engine creation
-    we don't even need a DBAPI to be available.
-
-    Calls to context.execute() here emit the given string to the
-    script output.
-
-    """
+    """Run migrations in 'offline' mode."""
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
@@ -48,6 +74,9 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
+    """
+    Run migrations in 'online' mode with a connection.
+    """
     context.configure(connection=connection, target_metadata=target_metadata)
 
     with context.begin_transaction():
@@ -55,11 +84,9 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
-    """In this scenario we need to create an Engine
-    and associate a connection with the context.
-
     """
-
+    Create an Engine and associate a connection with the context.
+    """
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
@@ -74,7 +101,6 @@ async def run_async_migrations() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
-
     asyncio.run(run_async_migrations())
 
 

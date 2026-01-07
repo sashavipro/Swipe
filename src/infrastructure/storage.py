@@ -6,7 +6,7 @@ import cloudinary
 import cloudinary.uploader
 from fastapi.concurrency import run_in_threadpool
 
-from src.config import settings
+from src.core.config import settings
 
 logger = logging.getLogger(__name__)
 

@@ -3,12 +3,11 @@
 import asyncio
 import logging
 import click
-
-from src.database import async_session_factory
-from src.infrastructure.security.password import PasswordHandler
-from src.models.users import UserRole
-from src.repositories.users import UserRepository
-from src.schemas.users import UserCreateBase
+from src.apps.auth.schemas import UserCreateBase
+from src.apps.users.models import UserRole
+from src.apps.users.repositories.user_profile import UserRepository
+from src.core.security.password import PasswordHandler
+from src.infrastructure.database.setup import async_session_factory
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

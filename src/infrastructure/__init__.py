@@ -1,1 +1,1 @@
-# Инфраструктурный слой
+"""src/infrastructure/__init__.py."""
