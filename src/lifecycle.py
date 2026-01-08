@@ -1,4 +1,4 @@
-"""src/core/lifecycle.py."""
+"""src/lifecycle.py."""
 
 import logging
 from contextlib import asynccontextmanager

@@ -6,7 +6,7 @@ from dishka.integrations.fastapi import setup_dishka
 from dishka import AsyncContainer
 from src.core.docs import VALIDATION_ERROR_RESPONSE
 from src.core.exceptions import setup_exception_handlers
-from src.core.lifecycle import lifespan
+from src.lifecycle import lifespan
 from src.apps.auth.router import router as auth_router
 from src.apps.users.routers.user_profile import router as user_profile_router
 from src.apps.users.routers.favorite import router as favorite_router
