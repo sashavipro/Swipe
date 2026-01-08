@@ -32,6 +32,7 @@ class Settings(BaseSettings):
 
     REDIS_HOST: str
     REDIS_PORT: int
+    REDIS_PASSWORD: Optional[str] = None
 
     MAIL_USERNAME: Optional[str] = None
     MAIL_PASSWORD: Optional[str] = None
@@ -54,8 +55,11 @@ class Settings(BaseSettings):
 
     @computed_field
     @property
-    def REDIS_URL(self) -> str:  # pylint: disable=invalid-name
+    def REDIS_URL(self) -> str:
         """Builds the Redis connection string."""
+        if self.REDIS_PASSWORD:
+            # Easypanel использует пользователя 'default'
+            return f"redis://default:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/0"
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0"
 
 
