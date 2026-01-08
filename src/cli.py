@@ -4,10 +4,13 @@ import asyncio
 import logging
 import click
 from src.apps.auth.schemas import UserCreateBase
-from src.apps.users.models import UserRole
 from src.apps.users.repositories.user_profile import UserRepository
+from src.core.enum import UserRole
 from src.core.security.password import PasswordHandler
 from src.infrastructure.database.setup import async_session_factory
+import src.apps.auth.models  # noqa: F401
+import src.apps.users.models  # noqa: F401
+import src.apps.buildings.models  # noqa: F401
 import src.apps.announcements.models  # noqa: F401
 
 logging.basicConfig(level=logging.INFO)
