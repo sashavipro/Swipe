@@ -8,6 +8,7 @@ from src.apps.users.models import UserRole
 from src.apps.users.repositories.user_profile import UserRepository
 from src.core.security.password import PasswordHandler
 from src.infrastructure.database.setup import async_session_factory
+import src.apps.announcements.models  # noqa: F401
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
