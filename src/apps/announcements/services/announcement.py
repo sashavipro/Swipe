@@ -284,3 +284,11 @@ class AnnouncementService:
             raise BadRequestError()
 
         return await self.repo.search_announcements(filter_params, limit, offset)
+
+    async def get_my_announcements(
+        self, user_id: int, limit: int = 20, offset: int = 0
+    ) -> Sequence[AnnouncementResponse]:
+        """Get announcements for the current user."""
+        return await self.repo.get_user_announcements(
+            user_id=user_id, limit=limit, offset=offset
+        )

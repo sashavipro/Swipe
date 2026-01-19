@@ -92,6 +92,18 @@ class AnnouncementCreate(BaseModel):
     images: List[str] = Field(default=[], description="List of images in Base64 format")
 
 
+class AnnouncementOwnerResponse(BaseModel):
+    """Schema representing the owner of an announcement."""
+
+    id: int
+    first_name: str
+    last_name: str
+    phone: str
+    email: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class AnnouncementResponse(BaseModel):
     """Schema for response with full announcement data."""
 
@@ -145,6 +157,8 @@ class AnnouncementResponse(BaseModel):
 
     images: List[ImageResponse] = []
     promotion: Optional[PromotionResponse] = None
+
+    owner: Optional[AnnouncementOwnerResponse] = None
 
     model_config = ConfigDict(from_attributes=True)
 

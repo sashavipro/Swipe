@@ -112,7 +112,9 @@ class AnnouncementRepository:
         query = (
             select(Announcement)
             .options(
-                selectinload(Announcement.images), selectinload(Announcement.promotion)
+                selectinload(Announcement.images),
+                selectinload(Announcement.promotion),
+                selectinload(Announcement.owner),
             )
             .outerjoin(Promotion)
             .order_by(
@@ -299,3 +301,26 @@ class AnnouncementRepository:
 
         logger.debug("Found %d announcements", len(items))
         return items
+
+    async def get_user_announcements(
+        self, user_id: int, limit: int = 20, offset: int = 0
+    ) -> Sequence[Announcement]:
+        """
+        Retrieves announcements belonging to a specific user.
+        """
+        query = (
+            select(Announcement)
+            .options(
+                selectinload(Announcement.images),
+                selectinload(Announcement.promotion),
+                selectinload(Announcement.owner),
+            )
+            .where(Announcement.user_id == user_id)
+            .where(Announcement.status == DealStatus.ACTIVE)
+            .order_by(Announcement.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+
+        result = await self.session.execute(query)
+        return result.scalars().all()

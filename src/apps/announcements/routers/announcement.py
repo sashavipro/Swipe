@@ -125,3 +125,17 @@ async def search_announcements(
     Parameters are passed in the query string.
     """
     return await service.search_announcements(filter_params, limit, offset)
+
+
+@router.get("/my", response_model=List[AnnouncementResponse])
+@inject
+async def get_my_announcements_list(
+    service: FromDishka[AnnouncementService],
+    user: User = Depends(get_current_user),
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
+):
+    """
+    Get listings created by the current user.
+    """
+    return await service.get_my_announcements(user.id, limit, offset)
